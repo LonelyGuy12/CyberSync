@@ -7,8 +7,9 @@ import com.lonelytrack.databinding.ItemHistoryPlanBinding
 import com.lonelytrack.model.HistoryPlanSummary
 
 class HistoryAdapter(
-    private val plans: List<HistoryPlanSummary>,
-    private val onPlanClick: (HistoryPlanSummary) -> Unit
+    private val plans: MutableList<HistoryPlanSummary>,
+    private val onPlanClick: (HistoryPlanSummary) -> Unit,
+    private val onDeleteClick: (HistoryPlanSummary, Int) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
     inner class ViewHolder(val binding: ItemHistoryPlanBinding) :
@@ -35,7 +36,14 @@ class HistoryAdapter(
             tvDate.text = plan.createdAt.take(10)
 
             root.setOnClickListener { onPlanClick(plan) }
+            btnDelete.setOnClickListener { onDeleteClick(plan, holder.adapterPosition) }
         }
+    }
+
+    fun removeAt(position: Int) {
+        plans.removeAt(position)
+        notifyItemRemoved(position)
+        notifyItemRangeChanged(position, plans.size)
     }
 
     override fun getItemCount() = plans.size

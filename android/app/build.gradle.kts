@@ -35,9 +35,10 @@ android {
 }
 
 dependencies {
-    // ── Firebase BoM + Firestore ────────────────────────────────────────────
+    // ── Firebase BoM + Firestore + Auth ────────────────────────────────────
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
 
     // ── Retrofit + Gson ─────────────────────────────────────────────────────
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

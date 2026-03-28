@@ -125,6 +125,28 @@ class LearningViewModel : ViewModel() {
         firestoreListener?.remove()
     }
 
+    fun loadPlan(planId: String) {
+        viewModelScope.launch {
+            _loading.value = true
+            _error.value = null
+            try {
+                val response = api.getPlan(planId)
+                _plan.value = GeneratePlanResponse(
+                    planId = response.planId,
+                    goal = response.goal,
+                    totalDays = response.totalDays,
+                    schedule = response.schedule
+                )
+                _schedule.value = response.schedule
+                listenToPlan(response.planId)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load plan"
+            } finally {
+                _loading.value = false
+            }
+        }
+    }
+
     fun clearPlan() {
         firestoreListener?.remove()
         firestoreListener = null

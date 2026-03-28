@@ -14,7 +14,12 @@ load_dotenv()
 
 # ── Firebase Admin Init ──────────────────────────────────────────────────────
 if not firebase_admin._apps:
-    cred = credentials.Certificate(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_PATH", "serviceAccountKey.json"))
+    # Support JSON string via env var (for Docker/HF Spaces) or file path (local dev)
+    firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_JSON")
+    if firebase_json:
+        cred = credentials.Certificate(json.loads(firebase_json))
+    else:
+        cred = credentials.Certificate(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_PATH", "serviceAccountKey.json"))
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -34,7 +39,7 @@ class UserRequest(BaseModel):
     topic: str
     daily_minutes: int = Field(gt=0, le=480)
     total_days: int = Field(gt=0, le=365, default=14)
-    skill_level: str = Field(pattern="^(beginner|intermediate|advanced)$")
+    skill_level: str = Field(pattern="^(beginner|intermediate|advanced|pro|Beginner|Intermediate|Advanced|Pro)$")
 
 
 class DailyTask(BaseModel):
@@ -195,6 +200,26 @@ async def check_and_simplify(user_id: str, plan_id: str):
 
 @app.post("/generate-plan")
 async def generate_plan(req: UserRequest):
+    # ── Check cache: reuse existing plan for same user + topic ───────────
+    existing = (
+        db.collection("learning_plans")
+        .where("user_id", "==", req.user_id)
+        .where("topic", "==", req.topic)
+        .stream()
+    )
+    for doc in existing:
+        d = doc.to_dict()
+        plan_id = doc.id
+        print(f"[generate-plan] Cache hit: returning existing plan {plan_id} for topic '{req.topic}'")
+        return {
+            "plan_id": plan_id,
+            "goal": d.get("goal", ""),
+            "total_days": d.get("total_days", 0),
+            "schedule": d.get("schedule", []),
+            "cached": True,
+        }
+
+    # ── No cache — generate new plan via LLM ─────────────────────────────
     prompt = PLAN_PROMPT_TEMPLATE.format(
         topic=req.topic,
         daily_minutes=req.daily_minutes,
@@ -221,7 +246,7 @@ async def generate_plan(req: UserRequest):
     doc_ref = db.collection("learning_plans").add(doc_data)
     plan_id = doc_ref[1].id
 
-    return {"plan_id": plan_id, **plan.model_dump()}
+    return {"plan_id": plan_id, **plan.model_dump(), "cached": False}
 
 
 @app.post("/update-status")
@@ -317,6 +342,21 @@ async def get_history(user_id: str):
     except Exception as e:
         print(f"[history] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Delete plan endpoint ─────────────────────────────────────────────────────
+@app.delete("/plan/{plan_id}")
+async def delete_plan(plan_id: str, user_id: str):
+    """Delete a learning plan. Requires user_id as query param for ownership check."""
+    doc_ref = db.collection("learning_plans").document(plan_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    data = doc.to_dict()
+    if data.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your plan")
+    doc_ref.delete()
+    return {"message": "Plan deleted"}
 
 
 if __name__ == "__main__":

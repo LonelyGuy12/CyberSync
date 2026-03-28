@@ -1,0 +1,45 @@
+INFO:     Will watch for changes in these directories: ['/Users/lonely/hackathons/CyberSync/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [25659] using WatchFiles
+INFO:     Started server process [25666]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     10.152.159.190:37324 - "POST /generate-plan HTTP/1.1" 422 Unprocessable Content
+INFO:     10.152.159.190:46582 - "POST /generate-plan HTTP/1.1" 422 Unprocessable Content
+INFO:     10.152.159.190:43006 - "POST /generate-plan HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:62836 - "POST /generate-plan HTTP/1.1" 422 Unprocessable Content
+INFO:     10.152.159.190:46684 - "POST /generate-plan HTTP/1.1" 422 Unprocessable Content
+WARNING:  WatchFiles detected changes in 'main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [25666]
+INFO:     Started server process [25881]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:63040 - "POST /generate-plan HTTP/1.1" 200 OK
+INFO:     10.152.159.190:45246 - "POST /generate-plan HTTP/1.1" 200 OK
+INFO:     10.152.159.190:45246 - "POST /generate-tutorial HTTP/1.1" 200 OK
+/Users/lonely/hackathons/CyberSync/backend/.venv/lib/python3.13/site-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+INFO:     10.152.159.190:43224 - "GET /history/skuVPPaFIyPR32fp1aJ8sQ6iC5F2 HTTP/1.1" 200 OK
+INFO:     10.152.159.190:42698 - "POST /generate-plan HTTP/1.1" 200 OK
+INFO:     10.152.159.190:44526 - "GET /history/skuVPPaFIyPR32fp1aJ8sQ6iC5F2 HTTP/1.1" 200 OK
+INFO:     10.152.159.190:39396 - "GET /history/skuVPPaFIyPR32fp1aJ8sQ6iC5F2 HTTP/1.1" 200 OK
+INFO:     10.152.159.190:39410 - "GET /history/skuVPPaFIyPR32fp1aJ8sQ6iC5F2 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [25881]
+INFO:     Started server process [36563]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36563]
+INFO:     Started server process [36643]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

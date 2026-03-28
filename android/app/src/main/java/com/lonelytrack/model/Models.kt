@@ -79,3 +79,7 @@ data class TutorialResponse(
     val topic: String,
     val tutorial: String
 )
+
+data class DeletePlanResponse(
+    val message: String
+)

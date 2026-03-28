@@ -31,4 +31,13 @@
         android:textSize="13sp"
         android:layout_marginTop="4dp" />
 
+    <TextView
+        android:id="@+id/tvUserInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:alpha="0.7"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp" />
+
 </LinearLayout>

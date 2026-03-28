@@ -12,4 +12,10 @@
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
+
+    <style name="AuthInputTheme" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnSurface">@color/text_secondary</item>
+        <item name="editTextColor">@color/text_primary</item>
+    </style>
 </resources>

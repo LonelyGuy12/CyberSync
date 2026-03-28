@@ -1,5 +1,6 @@
 package com.lonelytrack.api
 
+import com.lonelytrack.model.DeletePlanResponse
 import com.lonelytrack.model.GeneratePlanResponse
 import com.lonelytrack.model.HistoryResponse
 import com.lonelytrack.model.PlanDetailResponse
@@ -9,9 +10,11 @@ import com.lonelytrack.model.TutorialResponse
 import com.lonelytrack.model.UpdateStatusResponse
 import com.lonelytrack.model.UserRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface LearningApiService {
 
@@ -29,4 +32,10 @@ interface LearningApiService {
 
     @GET("history/{userId}")
     suspend fun getHistory(@Path("userId") userId: String): HistoryResponse
+
+    @DELETE("plan/{planId}")
+    suspend fun deletePlan(
+        @Path("planId") planId: String,
+        @Query("user_id") userId: String
+    ): DeletePlanResponse
 }

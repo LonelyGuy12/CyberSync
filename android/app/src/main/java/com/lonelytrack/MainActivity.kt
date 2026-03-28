@@ -8,29 +8,31 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.firebase.auth.FirebaseAuth
 import com.lonelytrack.adapter.ScheduleAdapter
 import com.lonelytrack.databinding.ActivityMainBinding
 import com.lonelytrack.viewmodel.LearningViewModel
-import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: LearningViewModel by viewModels()
+    private lateinit var auth: FirebaseAuth
 
-    // Simple anonymous user ID (in production, use Firebase Auth)
-    private val userId: String by lazy {
-        val prefs = getSharedPreferences("lonelytrack", MODE_PRIVATE)
-        prefs.getString("user_id", null) ?: UUID.randomUUID().toString().also {
-            prefs.edit().putString("user_id", it).apply()
-        }
-    }
+    private val userId: String
+        get() = auth.currentUser?.uid ?: ""
 
     private var currentPlanId: String? = null
 
+    private val prefs by lazy {
+        getSharedPreferences("lonelytrack_prefs", MODE_PRIVATE)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        auth = FirebaseAuth.getInstance()
+
         // Enable edge-to-edge display
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -51,6 +53,17 @@ class MainActivity : AppCompatActivity() {
             binding.drawerLayout.openDrawer(GravityCompat.START)
         }
 
+        // Set user info in nav header
+        val headerView = binding.navView.getHeaderView(0)
+        val tvUserInfo = headerView.findViewById<android.widget.TextView>(R.id.tvUserInfo)
+        val user = auth.currentUser
+        tvUserInfo.text = when {
+            user == null -> ""
+            user.isAnonymous -> "Signed in as Guest"
+            user.displayName?.isNotEmpty() == true -> user.displayName
+            else -> user.email ?: ""
+        }
+
         binding.navView.setNavigationItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> {
@@ -61,6 +74,7 @@ class MainActivity : AppCompatActivity() {
                     binding.formContainer.visibility = View.VISIBLE
                     binding.planSummary.visibility = View.GONE
                     currentPlanId = null
+                    prefs.edit().remove("last_plan_id").apply()
                     viewModel.clearPlan()
                 }
                 R.id.nav_progress -> {
@@ -79,6 +93,13 @@ class MainActivity : AppCompatActivity() {
                 }
                 R.id.nav_about -> {
                     Toast.makeText(this, "LonelyTrack — AI-powered learning consistency agent", Toast.LENGTH_LONG).show()
+                }
+                R.id.nav_logout -> {
+                    auth.signOut()
+                    startActivity(Intent(this, LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
+                    finish()
                 }
             }
             binding.drawerLayout.closeDrawer(GravityCompat.START)
@@ -147,6 +168,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.plan.observe(this) { plan ->
             if (plan != null) {
                 currentPlanId = plan.planId
+                prefs.edit().putString("last_plan_id", plan.planId).apply()
 
                 // Collapse the form, show the plan summary
                 binding.formContainer.visibility = View.GONE
@@ -171,6 +193,17 @@ class MainActivity : AppCompatActivity() {
         viewModel.updatingDays.observe(this) { days ->
             adapter.updatingDays = days
             adapter.notifyDataSetChanged()
+        }
+
+        // ── Load plan from History or restore last session ─────────────
+        val incomingPlanId = intent.getStringExtra("plan_id")
+        if (incomingPlanId != null) {
+            viewModel.loadPlan(incomingPlanId)
+        } else {
+            val savedPlanId = prefs.getString("last_plan_id", null)
+            if (savedPlanId != null) {
+                viewModel.loadPlan(savedPlanId)
+            }
         }
     }
 }
