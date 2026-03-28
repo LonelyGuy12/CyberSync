@@ -2,6 +2,10 @@
 .env
 backend/.env
 backend/serviceAccountKey.json
+backend/*firebase-adminsdk*.json
+
+# macOS
+.DS_Store
 
 # Python
 __pycache__/
