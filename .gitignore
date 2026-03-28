@@ -1,0 +1,17 @@
+# Secrets
+.env
+backend/.env
+backend/serviceAccountKey.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+.idea/
