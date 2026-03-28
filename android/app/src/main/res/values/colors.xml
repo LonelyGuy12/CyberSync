@@ -18,6 +18,10 @@
     <!-- Border -->
     <color name="border">#262626</color>
     
+    <!-- Primary -->
+    <color name="primary">#6366F1</color>
+    <color name="primary_light">#A5B4FC</color>
+    
     <!-- Status Colors -->
     <color name="success">#10B981</color>
     <color name="success_light">#064E3B</color>

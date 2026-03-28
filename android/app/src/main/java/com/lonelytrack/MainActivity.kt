@@ -1,10 +1,12 @@
 package com.lonelytrack
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.lonelytrack.adapter.ScheduleAdapter
 import com.lonelytrack.databinding.ActivityMainBinding
@@ -28,8 +30,54 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Enable edge-to-edge display
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        )
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ── Skill level dropdown ────────────────────────────────────────
+        val skillLevels = arrayOf("beginner", "intermediate", "pro")
+        val skillAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, skillLevels)
+        binding.etSkillLevel.setAdapter(skillAdapter)
+        binding.etSkillLevel.setText("beginner", false)
+
+        // ── Hamburger menu ──────────────────────────────────────────────
+        binding.btnMenu.setOnClickListener {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+
+        binding.navView.setNavigationItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    // Already home — just close drawer
+                }
+                R.id.nav_new_plan -> {
+                    // Show form again
+                    binding.formContainer.visibility = View.VISIBLE
+                    binding.planSummary.visibility = View.GONE
+                    currentPlanId = null
+                    viewModel.clearPlan()
+                }
+                R.id.nav_progress -> {
+                    // Scroll to plan summary if visible
+                    if (binding.planSummary.visibility == View.VISIBLE) {
+                        binding.planSummary.requestFocus()
+                    } else {
+                        Toast.makeText(this, "Generate a plan first", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                R.id.nav_about -> {
+                    Toast.makeText(this, "LonelyTrack — AI-powered learning consistency agent", Toast.LENGTH_LONG).show()
+                }
+            }
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+            true
+        }
 
         val adapter = ScheduleAdapter(
             onComplete = { task ->
@@ -41,6 +89,16 @@ class MainActivity : AppCompatActivity() {
                 currentPlanId?.let { planId ->
                     viewModel.updateDayStatus(userId, planId, task.day, "missed")
                 }
+            },
+            onItemClick = { task ->
+                val skillLevel = binding.etSkillLevel.text.toString().trim().ifEmpty { "beginner" }
+                // dropdown is read-only, value is always valid
+                val intent = Intent(this, TutorialActivity::class.java).apply {
+                    putExtra(TutorialActivity.EXTRA_TOPIC, task.topic)
+                    putExtra(TutorialActivity.EXTRA_SKILL_LEVEL, skillLevel)
+                }
+                startActivity(intent)
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }
         )
 
@@ -51,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnGeneratePlan.setOnClickListener {
             val topic = binding.etTopic.text.toString().trim()
             val minutes = binding.etMinutes.text.toString().toIntOrNull() ?: 30
+            val totalDays = binding.etTotalDays.text.toString().toIntOrNull() ?: 14
             val level = binding.etSkillLevel.text.toString().trim().ifEmpty { "beginner" }
 
             if (topic.isEmpty()) {
@@ -58,7 +117,7 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            viewModel.generatePlan(userId, topic, minutes, level)
+            viewModel.generatePlan(userId, topic, minutes, totalDays, level)
         }
 
         // ── Observe loading ─────────────────────────────────────────────

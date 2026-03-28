@@ -8,6 +8,7 @@ data class UserRequest(
     @SerializedName("user_id") val userId: String,
     val topic: String,
     @SerializedName("daily_minutes") val dailyMinutes: Int,
+    @SerializedName("total_days") val totalDays: Int = 14,
     @SerializedName("skill_level") val skillLevel: String   // beginner | intermediate | advanced
 )
 
@@ -50,4 +51,16 @@ data class PlanDetailResponse(
     val goal: String,
     @SerializedName("total_days") val totalDays: Int,
     val schedule: List<DailyTask>
+)
+
+// ── Tutorial models ─────────────────────────────────────────────────────────
+
+data class TutorialRequest(
+    val topic: String,
+    @SerializedName("skill_level") val skillLevel: String
+)
+
+data class TutorialResponse(
+    val topic: String,
+    val tutorial: String
 )

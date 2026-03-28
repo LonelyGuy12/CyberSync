@@ -33,6 +33,7 @@ class UserRequest(BaseModel):
     user_id: str
     topic: str
     daily_minutes: int = Field(gt=0, le=480)
+    total_days: int = Field(gt=0, le=365, default=14)
     skill_level: str = Field(pattern="^(beginner|intermediate|advanced)$")
 
 
@@ -56,18 +57,24 @@ class StatusUpdate(BaseModel):
     status: str = Field(pattern="^(completed|missed)$")
 
 
+class TutorialRequest(BaseModel):
+    topic: str
+    skill_level: str = "beginner"
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 PLAN_PROMPT_TEMPLATE = """You are a study-plan generator. Create a structured learning plan.
 
 Topic: {topic}
 Daily available time: {daily_minutes} minutes
+Total duration: {total_days} days
 Current skill level: {skill_level}
 
 Return ONLY valid JSON matching this exact schema (no markdown, no explanation):
 {{
   "goal": "<one-sentence learning goal>",
-  "total_days": <int>,
+  "total_days": {total_days},
   "schedule": [
     {{"day": 1, "topic": "<sub-topic>", "duration_mins": <int>, "status": "pending"}},
     ...
@@ -76,7 +83,7 @@ Return ONLY valid JSON matching this exact schema (no markdown, no explanation):
 
 Rules:
 - Each day's duration_mins must be <= {daily_minutes}.
-- Provide between 7 and 30 days of content.
+- Provide exactly {total_days} days of content.
 - Tailor complexity to the {skill_level} level.
 """
 
@@ -95,6 +102,23 @@ Rules:
 - Reduce complexity and session length by ~25%.
 - Merge or drop low-priority topics.
 - Keep the list between 3 and 20 entries.
+"""
+
+TUTORIAL_PROMPT_TEMPLATE = """You are an expert tutor. Write a comprehensive tutorial on the following topic.
+
+Topic: {topic}
+Skill level: {skill_level}
+
+Write a well-structured tutorial with:
+- A brief introduction explaining what this topic is and why it matters
+- Clear step-by-step explanations with examples
+- Code examples if applicable (use proper formatting)
+- Key takeaways or summary at the end
+- Practice exercises or questions to reinforce learning
+
+Write in plain text with clear section headers (use ALL CAPS for headers).
+Keep the tutorial focused and around 800-1200 words.
+Make it engaging and easy to follow for a {skill_level} learner.
 """
 
 
@@ -174,6 +198,7 @@ async def generate_plan(req: UserRequest):
     prompt = PLAN_PROMPT_TEMPLATE.format(
         topic=req.topic,
         daily_minutes=req.daily_minutes,
+        total_days=req.total_days,
         skill_level=req.skill_level,
     )
 
@@ -241,6 +266,21 @@ async def get_plan(plan_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Plan not found")
     return {"plan_id": plan_id, **doc.to_dict()}
+
+
+@app.post("/generate-tutorial")
+async def generate_tutorial(req: TutorialRequest):
+    prompt = TUTORIAL_PROMPT_TEMPLATE.format(
+        topic=req.topic,
+        skill_level=req.skill_level,
+    )
+
+    response = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    content = response.choices[0].message.content.strip()
+    return {"topic": req.topic, "tutorial": content}
 
 
 if __name__ == "__main__":

@@ -13,7 +13,8 @@ import com.lonelytrack.model.DailyTask
 
 class ScheduleAdapter(
     private val onComplete: (DailyTask) -> Unit,
-    private val onMiss: (DailyTask) -> Unit
+    private val onMiss: (DailyTask) -> Unit,
+    private val onItemClick: (DailyTask) -> Unit = {}
 ) : ListAdapter<DailyTask, ScheduleAdapter.TaskViewHolder>(DiffCallback) {
 
     var updatingDays: Set<Int> = emptySet()
@@ -82,6 +83,9 @@ class ScheduleAdapter(
 
             b.btnComplete.setOnClickListener { onComplete(task) }
             b.btnMiss.setOnClickListener { onMiss(task) }
+
+            // Tap on the card (day number or topic) to open tutorial
+            b.root.setOnClickListener { onItemClick(task) }
         }
     }
 

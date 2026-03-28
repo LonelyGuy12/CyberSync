@@ -39,12 +39,12 @@ class LearningViewModel : ViewModel() {
 
     // ── Generate a new plan via the backend ─────────────────────────────────
 
-    fun generatePlan(userId: String, topic: String, dailyMinutes: Int, skillLevel: String) {
+    fun generatePlan(userId: String, topic: String, dailyMinutes: Int, totalDays: Int, skillLevel: String) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
             try {
-                val request = UserRequest(userId, topic, dailyMinutes, skillLevel)
+                val request = UserRequest(userId, topic, dailyMinutes, totalDays, skillLevel)
                 val response = api.generatePlan(request)
                 _plan.value = response
                 _schedule.value = response.schedule
@@ -123,5 +123,13 @@ class LearningViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         firestoreListener?.remove()
+    }
+
+    fun clearPlan() {
+        firestoreListener?.remove()
+        firestoreListener = null
+        _plan.value = null
+        _schedule.value = emptyList()
+        _error.value = null
     }
 }
