@@ -53,6 +53,21 @@ data class PlanDetailResponse(
     val schedule: List<DailyTask>
 )
 
+// ── History models ──────────────────────────────────────────────────────────
+
+data class HistoryResponse(
+    val plans: List<HistoryPlanSummary>
+)
+
+data class HistoryPlanSummary(
+    @SerializedName("plan_id") val planId: String,
+    val goal: String,
+    val topic: String,
+    @SerializedName("total_days") val totalDays: Int,
+    @SerializedName("completed_days") val completedDays: Int,
+    @SerializedName("created_at") val createdAt: String
+)
+
 // ── Tutorial models ─────────────────────────────────────────────────────────
 
 data class TutorialRequest(

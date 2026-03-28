@@ -41,10 +41,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // ── Skill level dropdown ────────────────────────────────────────
-        val skillLevels = arrayOf("beginner", "intermediate", "pro")
+        val skillLevels = arrayOf("Beginner", "Intermediate", "Pro")
         val skillAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, skillLevels)
         binding.etSkillLevel.setAdapter(skillAdapter)
-        binding.etSkillLevel.setText("beginner", false)
+        binding.etSkillLevel.setText("Beginner", false)
 
         // ── Hamburger menu ──────────────────────────────────────────────
         binding.btnMenu.setOnClickListener {
@@ -70,6 +70,12 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         Toast.makeText(this, "Generate a plan first", Toast.LENGTH_SHORT).show()
                     }
+                }
+                R.id.nav_history -> {
+                    val intent = Intent(this, HistoryActivity::class.java)
+                    intent.putExtra("user_id", userId)
+                    startActivity(intent)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
                 R.id.nav_about -> {
                     Toast.makeText(this, "LonelyTrack — AI-powered learning consistency agent", Toast.LENGTH_LONG).show()

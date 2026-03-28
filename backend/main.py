@@ -214,6 +214,7 @@ async def generate_plan(req: UserRequest):
     # Persist to Firestore
     doc_data = {
         "user_id": req.user_id,
+        "topic": req.topic,
         "created_at": datetime.utcnow().isoformat(),
         **plan.model_dump(),
     }
@@ -281,6 +282,41 @@ async def generate_tutorial(req: TutorialRequest):
     )
     content = response.choices[0].message.content.strip()
     return {"topic": req.topic, "tutorial": content}
+
+
+# ── History endpoint ──────────────────────────────────────────────────────────
+@app.get("/history/{user_id}")
+async def get_history(user_id: str):
+    """Return all learning plans for a user, newest first."""
+    try:
+        docs = (
+            db.collection("learning_plans")
+            .where("user_id", "==", user_id)
+            .stream()
+        )
+        plans = []
+        for doc in docs:
+            d = doc.to_dict()
+            schedule = d.get("schedule", [])
+            completed = sum(1 for t in schedule if t.get("status") == "completed")
+            topic = d.get("topic", "") or ""
+            # Fallback: extract topic from goal if topic wasn't saved
+            if not topic and d.get("goal"):
+                topic = d["goal"].split(".")[0][:50]
+            plans.append({
+                "plan_id": doc.id,
+                "goal": d.get("goal", ""),
+                "topic": topic,
+                "total_days": d.get("total_days", len(schedule)),
+                "completed_days": completed,
+                "created_at": d.get("created_at", ""),
+            })
+        # Sort newest first in Python (avoids needing a Firestore composite index)
+        plans.sort(key=lambda p: p["created_at"], reverse=True)
+        return {"plans": plans}
+    except Exception as e:
+        print(f"[history] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

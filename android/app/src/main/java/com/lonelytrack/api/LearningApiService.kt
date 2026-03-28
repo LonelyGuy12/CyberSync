@@ -1,6 +1,7 @@
 package com.lonelytrack.api
 
 import com.lonelytrack.model.GeneratePlanResponse
+import com.lonelytrack.model.HistoryResponse
 import com.lonelytrack.model.PlanDetailResponse
 import com.lonelytrack.model.StatusUpdate
 import com.lonelytrack.model.TutorialRequest
@@ -25,4 +26,7 @@ interface LearningApiService {
 
     @POST("generate-tutorial")
     suspend fun generateTutorial(@Body request: TutorialRequest): TutorialResponse
+
+    @GET("history/{userId}")
+    suspend fun getHistory(@Path("userId") userId: String): HistoryResponse
 }
