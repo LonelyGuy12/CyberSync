@@ -16,7 +16,7 @@ android {
         versionName = "0.1.0"
 
         // Point Retrofit at your FastAPI backend
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/\"")
+        buildConfigField("String", "BASE_URL", "\"http://10.152.159.116:8000/\"")
     }
 
     buildFeatures {

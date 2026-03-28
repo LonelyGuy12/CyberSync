@@ -34,6 +34,9 @@ class LearningViewModel : ViewModel() {
 
     private var firestoreListener: ListenerRegistration? = null
 
+    private val _updatingDays = MutableLiveData<Set<Int>>(emptySet())
+    val updatingDays: LiveData<Set<Int>> = _updatingDays
+
     // ── Generate a new plan via the backend ─────────────────────────────────
 
     fun generatePlan(userId: String, topic: String, dailyMinutes: Int, skillLevel: String) {
@@ -59,14 +62,30 @@ class LearningViewModel : ViewModel() {
     // ── Mark a day completed / missed via the backend ───────────────────────
 
     fun updateDayStatus(userId: String, planId: String, day: Int, status: String) {
+        // Prevent double-tap
+        if (_updatingDays.value?.contains(day) == true) return
+        _updatingDays.value = (_updatingDays.value ?: emptySet()) + day
+
         viewModelScope.launch {
             _error.value = null
             try {
                 val request = StatusUpdate(userId, planId, day, status)
                 api.updateStatus(request)
-                // Firestore listener will automatically push the updated schedule
+
+                // Optimistic local update — immediately reflect in UI
+                val current = _schedule.value?.toMutableList() ?: mutableListOf()
+                val idx = current.indexOfFirst { it.day == day }
+                if (idx >= 0) {
+                    current[idx] = current[idx].copy(status = status)
+                    _schedule.value = current
+                }
+            } catch (e: retrofit2.HttpException) {
+                val body = e.response()?.errorBody()?.string() ?: e.message()
+                _error.value = "Day $day: $body"
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to update status"
+            } finally {
+                _updatingDays.value = (_updatingDays.value ?: emptySet()) - day
             }
         }
     }

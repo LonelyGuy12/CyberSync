@@ -1,5 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App Icon -->
     <color name="ic_launcher_background">#2196F3</color>
     <color name="ic_launcher_foreground">#FFFFFF</color>
+    
+    <!-- Background - AMOLED Black -->
+    <color name="background">#000000</color>
+    <color name="surface">#0A0A0A</color>
+    <color name="surface_elevated">#1A1A1A</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#A3A3A3</color>
+    <color name="text_tertiary">#737373</color>
+    <color name="white">#FFFFFF</color>
+    
+    <!-- Border -->
+    <color name="border">#262626</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#10B981</color>
+    <color name="success_light">#064E3B</color>
+    <color name="error">#EF4444</color>
+    <color name="error_light">#7F1D1D</color>
+    <color name="pending">#F59E0B</color>
+    <color name="pending_light">#78350F</color>
+    
+    <!-- Gradient -->
+    <color name="gradient_start">#6366F1</color>
+    <color name="gradient_end">#8B5CF6</color>
+    
+    <!-- Button -->
+    <color name="button_bg">#FFFFFF</color>
+    <color name="button_text">#000000</color>
 </resources>

@@ -1,6 +1,5 @@
 package com.lonelytrack.adapter
 
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
@@ -8,6 +7,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.lonelytrack.R
 import com.lonelytrack.databinding.ItemDayTaskBinding
 import com.lonelytrack.model.DailyTask
 
@@ -15,6 +15,8 @@ class ScheduleAdapter(
     private val onComplete: (DailyTask) -> Unit,
     private val onMiss: (DailyTask) -> Unit
 ) : ListAdapter<DailyTask, ScheduleAdapter.TaskViewHolder>(DiffCallback) {
+
+    var updatingDays: Set<Int> = emptySet()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
         val binding = ItemDayTaskBinding.inflate(
@@ -32,42 +34,51 @@ class ScheduleAdapter(
     ) : RecyclerView.ViewHolder(b.root) {
 
         fun bind(task: DailyTask) {
+            val context = b.root.context
+            
             b.tvDay.text = task.day.toString()
             b.tvTopic.text = task.topic
             b.tvDuration.text = "${task.durationMins} min"
 
             // Circle color based on status
             val circleColor = when (task.status) {
-                "completed" -> Color.parseColor("#4CAF50")
-                "missed"    -> Color.parseColor("#F44336")
-                else        -> Color.parseColor("#6200EE")
+                "completed" -> context.getColor(R.color.success)
+                "missed"    -> context.getColor(R.color.error)
+                else        -> context.getColor(R.color.pending)
             }
             (b.tvDay.background as? GradientDrawable)?.setColor(circleColor)
 
             when (task.status) {
                 "pending" -> {
-                    b.btnComplete.visibility = View.VISIBLE
-                    b.btnMiss.visibility = View.VISIBLE
+                    b.actionButtons.visibility = View.VISIBLE
                     b.tvStatus.visibility = View.GONE
                     b.tvTopic.alpha = 1f
                 }
                 "completed" -> {
-                    b.btnComplete.visibility = View.GONE
-                    b.btnMiss.visibility = View.GONE
+                    b.actionButtons.visibility = View.GONE
                     b.tvStatus.visibility = View.VISIBLE
-                    b.tvStatus.text = "✓ Done"
-                    b.tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                    b.tvTopic.alpha = 0.6f
+                    b.tvStatus.text = "✓"
+                    b.tvStatus.setTextColor(context.getColor(R.color.success))
+                    b.tvStatus.setBackgroundColor(context.getColor(R.color.success_light))
+                    b.tvTopic.alpha = 0.5f
+                    b.tvDuration.alpha = 0.5f
                 }
                 "missed" -> {
-                    b.btnComplete.visibility = View.GONE
-                    b.btnMiss.visibility = View.GONE
+                    b.actionButtons.visibility = View.GONE
                     b.tvStatus.visibility = View.VISIBLE
-                    b.tvStatus.text = "✗ Missed"
-                    b.tvStatus.setTextColor(Color.parseColor("#F44336"))
-                    b.tvTopic.alpha = 0.6f
+                    b.tvStatus.text = "✗"
+                    b.tvStatus.setTextColor(context.getColor(R.color.error))
+                    b.tvStatus.setBackgroundColor(context.getColor(R.color.error_light))
+                    b.tvTopic.alpha = 0.5f
+                    b.tvDuration.alpha = 0.5f
                 }
             }
+
+            val isUpdating = updatingDays.contains(task.day)
+            b.btnComplete.isEnabled = !isUpdating
+            b.btnMiss.isEnabled = !isUpdating
+            b.btnComplete.alpha = if (isUpdating) 0.4f else 1f
+            b.btnMiss.alpha = if (isUpdating) 0.4f else 1f
 
             b.btnComplete.setOnClickListener { onComplete(task) }
             b.btnMiss.setOnClickListener { onMiss(task) }

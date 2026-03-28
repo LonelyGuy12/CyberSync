@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
 
         // ── Observe loading ─────────────────────────────────────────────
         viewModel.loading.observe(this) { loading ->
-            binding.progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+            binding.loadingCard.visibility = if (loading) View.VISIBLE else View.GONE
             binding.btnGeneratePlan.isEnabled = !loading
         }
 
@@ -71,10 +71,10 @@ class MainActivity : AppCompatActivity() {
         viewModel.error.observe(this) { err ->
             if (err != null) {
                 binding.tvError.text = err
-                binding.tvError.visibility = View.VISIBLE
+                binding.errorCard.visibility = View.VISIBLE
                 Toast.makeText(this, err, Toast.LENGTH_SHORT).show()
             } else {
-                binding.tvError.visibility = View.GONE
+                binding.errorCard.visibility = View.GONE
             }
         }
 
@@ -100,6 +100,12 @@ class MainActivity : AppCompatActivity() {
                 val total = tasks.size
                 binding.tvProgress.text = "$completed / $total days completed"
             }
+        }
+
+        // ── Observe in-flight updates (disable buttons while updating) ──
+        viewModel.updatingDays.observe(this) { days ->
+            adapter.updatingDays = days
+            adapter.notifyDataSetChanged()
         }
     }
 }

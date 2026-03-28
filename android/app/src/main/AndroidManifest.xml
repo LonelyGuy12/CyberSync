@@ -7,8 +7,9 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="LonelyTrack"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".MainActivity"

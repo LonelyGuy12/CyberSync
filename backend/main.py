@@ -13,8 +13,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Firebase Admin Init ──────────────────────────────────────────────────────
-cred = credentials.Certificate(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_PATH", "serviceAccountKey.json"))
-firebase_admin.initialize_app(cred)
+if not firebase_admin._apps:
+    cred = credentials.Certificate(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_PATH", "serviceAccountKey.json"))
+    firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 # ── OpenRouter LLM Init ──────────────────────────────────────────────────────
@@ -212,13 +213,19 @@ async def update_status(req: StatusUpdate, background_tasks: BackgroundTasks):
     schedule = data.get("schedule", [])
     updated = False
     for task in schedule:
-        if task["day"] == req.day and task["status"] == "pending":
+        if int(task["day"]) == req.day and task["status"] == "pending":
             task["status"] = req.status
             updated = True
             break
 
     if not updated:
-        raise HTTPException(status_code=400, detail="Day not found or already updated")
+        # Log debug info to help diagnose
+        day_statuses = {int(t.get('day', 0)): t.get('status', '?') for t in schedule}
+        print(f"[update-status] day={req.day}, schedule_days={day_statuses}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Day {req.day} not found or already updated. Current statuses: {day_statuses}"
+        )
 
     doc_ref.update({"schedule": schedule})
 
