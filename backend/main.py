@@ -270,7 +270,6 @@ async def update_status(req: StatusUpdate, background_tasks: BackgroundTasks):
             break
 
     if not updated:
-        # Log debug info to help diagnose
         day_statuses = {int(t.get('day', 0)): t.get('status', '?') for t in schedule}
         print(f"[update-status] day={req.day}, schedule_days={day_statuses}")
         raise HTTPException(
@@ -280,10 +279,171 @@ async def update_status(req: StatusUpdate, background_tasks: BackgroundTasks):
 
     doc_ref.update({"schedule": schedule})
 
+    # ── Award points if completed ────────────────────────────────────────
+    points_earned = 0
+    total_points = 0
+    streak = 0
+    if req.status == "completed":
+        points_earned = 10  # base points per day
+
+        # Calculate streak bonus: count consecutive completed days ending at this day
+        sorted_schedule = sorted(schedule, key=lambda t: int(t["day"]))
+        current_streak = 0
+        for t in sorted_schedule:
+            if t["status"] == "completed":
+                current_streak += 1
+            else:
+                current_streak = 0
+        streak = current_streak
+
+        # Streak bonuses
+        if streak >= 7:
+            points_earned += 25  # week streak bonus
+        elif streak >= 3:
+            points_earned += 10  # 3-day streak bonus
+
+        # Update user points in Firestore
+        points_ref = db.collection("user_points").document(req.user_id)
+        points_doc = points_ref.get()
+        if points_doc.exists:
+            current = points_doc.to_dict().get("total_points", 0)
+            total_points = current + points_earned
+            points_ref.update({
+                "total_points": total_points,
+                "last_earned": points_earned,
+                "streak": streak,
+                "updated_at": datetime.utcnow().isoformat(),
+            })
+        else:
+            total_points = points_earned
+            points_ref.set({
+                "user_id": req.user_id,
+                "total_points": total_points,
+                "last_earned": points_earned,
+                "streak": streak,
+                "updated_at": datetime.utcnow().isoformat(),
+            })
+
     # Trigger background check for consecutive misses
     background_tasks.add_task(check_and_simplify, req.user_id, req.plan_id)
 
-    return {"message": f"Day {req.day} marked as {req.status}"}
+    return {
+        "message": f"Day {req.day} marked as {req.status}",
+        "points_earned": points_earned,
+        "total_points": total_points,
+        "streak": streak,
+    }
+
+
+@app.get("/points/{user_id}")
+async def get_points(user_id: str):
+    """Get a user's total points and streak."""
+    doc = db.collection("user_points").document(user_id).get()
+    if not doc.exists:
+        return {"total_points": 0, "streak": 0, "last_earned": 0}
+    data = doc.to_dict()
+    return {
+        "total_points": data.get("total_points", 0),
+        "streak": data.get("streak", 0),
+        "last_earned": data.get("last_earned", 0),
+    }
+
+
+# ── Profile / Achievements endpoint ──────────────────────────────────────────
+
+TROPHY_DEFINITIONS = [
+    {"id": "first_step",      "name": "First Step",       "desc": "Complete your first lesson",         "icon": "⭐", "requirement": 1},
+    {"id": "getting_started", "name": "Getting Started",   "desc": "Complete 5 lessons",                "icon": "🌟", "requirement": 5},
+    {"id": "dedicated",       "name": "Dedicated Learner", "desc": "Complete 10 lessons",               "icon": "📚", "requirement": 10},
+    {"id": "scholar",         "name": "Scholar",           "desc": "Complete 25 lessons",               "icon": "🎓", "requirement": 25},
+    {"id": "master",          "name": "Master",            "desc": "Complete 50 lessons",               "icon": "👑", "requirement": 50},
+    {"id": "streak_3",        "name": "On Fire",           "desc": "Reach a 3-day streak",              "icon": "🔥", "requirement": 3,  "type": "streak"},
+    {"id": "streak_7",        "name": "Week Warrior",      "desc": "Reach a 7-day streak",              "icon": "⚡", "requirement": 7,  "type": "streak"},
+    {"id": "streak_14",       "name": "Unstoppable",       "desc": "Reach a 14-day streak",             "icon": "💎", "requirement": 14, "type": "streak"},
+    {"id": "multi_topic",     "name": "Explorer",          "desc": "Study 3 different topics",          "icon": "🧭", "requirement": 3,  "type": "topics"},
+    {"id": "points_100",      "name": "Century Club",      "desc": "Earn 100 total XP",                 "icon": "💯", "requirement": 100, "type": "points"},
+    {"id": "points_500",      "name": "XP Hunter",         "desc": "Earn 500 total XP",                 "icon": "🏆", "requirement": 500, "type": "points"},
+]
+
+
+@app.get("/profile/{user_id}")
+async def get_profile(user_id: str):
+    """Get full user profile with stats, achievements, and trophies."""
+    # Gather points data
+    points_doc = db.collection("user_points").document(user_id).get()
+    points_data = points_doc.to_dict() if points_doc.exists else {}
+    total_points = points_data.get("total_points", 0)
+    current_streak = points_data.get("streak", 0)
+    best_streak = points_data.get("best_streak", current_streak)
+
+    # Gather plan stats
+    plans = db.collection("learning_plans").where("user_id", "==", user_id).stream()
+    total_completed = 0
+    total_missed = 0
+    total_pending = 0
+    total_plans = 0
+    topics_studied = set()
+
+    for doc in plans:
+        d = doc.to_dict()
+        total_plans += 1
+        topic = d.get("topic", "")
+        if topic:
+            topics_studied.add(topic.lower())
+        for task in d.get("schedule", []):
+            s = task.get("status", "pending")
+            if s == "completed":
+                total_completed += 1
+            elif s == "missed":
+                total_missed += 1
+            else:
+                total_pending += 1
+
+    # Calculate stars (1 star per 5 completed lessons)
+    stars = total_completed // 5
+
+    # Determine which trophies are unlocked
+    unlocked_trophies = []
+    for t in TROPHY_DEFINITIONS:
+        trophy_type = t.get("type", "lessons")
+        earned = False
+        if trophy_type == "streak":
+            earned = best_streak >= t["requirement"]
+        elif trophy_type == "topics":
+            earned = len(topics_studied) >= t["requirement"]
+        elif trophy_type == "points":
+            earned = total_points >= t["requirement"]
+        else:  # lessons
+            earned = total_completed >= t["requirement"]
+
+        unlocked_trophies.append({
+            "id": t["id"],
+            "name": t["name"],
+            "desc": t["desc"],
+            "icon": t["icon"],
+            "unlocked": earned,
+        })
+
+    # Update best_streak if current is higher
+    if current_streak > best_streak:
+        best_streak = current_streak
+        db.collection("user_points").document(user_id).set(
+            {"best_streak": best_streak}, merge=True
+        )
+
+    return {
+        "user_id": user_id,
+        "total_points": total_points,
+        "stars": stars,
+        "current_streak": current_streak,
+        "best_streak": best_streak,
+        "total_completed": total_completed,
+        "total_missed": total_missed,
+        "total_pending": total_pending,
+        "total_plans": total_plans,
+        "topics_studied": list(topics_studied),
+        "trophies": unlocked_trophies,
+    }
 
 
 @app.get("/plan/{plan_id}")

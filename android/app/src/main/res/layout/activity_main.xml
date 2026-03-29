@@ -70,6 +70,36 @@
                             android:textColor="@color/text_tertiary"
                             android:layout_marginTop="4dp" />
                     </LinearLayout>
+
+                    <!-- Points badge -->
+                    <LinearLayout
+                        android:id="@+id/pointsBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="@drawable/points_badge_bg"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvPoints"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFD700" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="XP"
+                            android:textSize="10sp"
+                            android:textColor="#FFD700"
+                            android:alpha="0.7" />
+                    </LinearLayout>
                 </LinearLayout>
 
             <!-- Create Plan Form -->
@@ -303,6 +333,18 @@
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Floating points animation text -->
+    <TextView
+        android:id="@+id/tvPointsAnim"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#FFD700"
+        android:visibility="gone"
+        android:elevation="10dp" />
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 

@@ -37,6 +37,15 @@ class LearningViewModel : ViewModel() {
     private val _updatingDays = MutableLiveData<Set<Int>>(emptySet())
     val updatingDays: LiveData<Set<Int>> = _updatingDays
 
+    private val _totalPoints = MutableLiveData(0)
+    val totalPoints: LiveData<Int> = _totalPoints
+
+    private val _pointsEarned = MutableLiveData<Int?>()
+    val pointsEarned: LiveData<Int?> = _pointsEarned
+
+    private val _streak = MutableLiveData(0)
+    val streak: LiveData<Int> = _streak
+
     // ── Generate a new plan via the backend ─────────────────────────────────
 
     fun generatePlan(userId: String, topic: String, dailyMinutes: Int, totalDays: Int, skillLevel: String) {
@@ -70,7 +79,14 @@ class LearningViewModel : ViewModel() {
             _error.value = null
             try {
                 val request = StatusUpdate(userId, planId, day, status)
-                api.updateStatus(request)
+                val response = api.updateStatus(request)
+
+                // Update points
+                if (response.pointsEarned > 0) {
+                    _totalPoints.value = response.totalPoints
+                    _pointsEarned.value = response.pointsEarned
+                    _streak.value = response.streak
+                }
 
                 // Optimistic local update — immediately reflect in UI
                 val current = _schedule.value?.toMutableList() ?: mutableListOf()
@@ -153,5 +169,21 @@ class LearningViewModel : ViewModel() {
         _plan.value = null
         _schedule.value = emptyList()
         _error.value = null
+    }
+
+    fun loadPoints(userId: String) {
+        viewModelScope.launch {
+            try {
+                val response = api.getPoints(userId)
+                _totalPoints.value = response.totalPoints
+                _streak.value = response.streak
+            } catch (_: Exception) {
+                // Silent — points are non-critical
+            }
+        }
+    }
+
+    fun clearPointsAnimation() {
+        _pointsEarned.value = null
     }
 }

@@ -3,6 +3,7 @@ package com.lonelytrack
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.animation.AccelerateInterpolator
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -89,6 +90,10 @@ class MainActivity : AppCompatActivity() {
                     val intent = Intent(this, HistoryActivity::class.java)
                     intent.putExtra("user_id", userId)
                     startActivity(intent)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                }
+                R.id.nav_profile -> {
+                    startActivity(Intent(this, ProfileActivity::class.java))
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
                 R.id.nav_about -> {
@@ -195,6 +200,27 @@ class MainActivity : AppCompatActivity() {
             adapter.notifyDataSetChanged()
         }
 
+        // ── Observe points ──────────────────────────────────────────────
+        viewModel.totalPoints.observe(this) { points ->
+            if (points > 0) {
+                binding.pointsBadge.visibility = View.VISIBLE
+                binding.tvPoints.text = points.toString()
+            }
+        }
+
+        // ── Animate points earned ───────────────────────────────────────
+        viewModel.pointsEarned.observe(this) { earned ->
+            if (earned != null && earned > 0) {
+                showPointsAnimation(earned)
+                viewModel.clearPointsAnimation()
+            }
+        }
+
+        // ── Load user's points on startup ───────────────────────────────
+        if (userId.isNotEmpty()) {
+            viewModel.loadPoints(userId)
+        }
+
         // ── Load plan from History or restore last session ─────────────
         val incomingPlanId = intent.getStringExtra("plan_id")
         if (incomingPlanId != null) {
@@ -205,5 +231,28 @@ class MainActivity : AppCompatActivity() {
                 viewModel.loadPlan(savedPlanId)
             }
         }
+    }
+
+    private fun showPointsAnimation(points: Int) {
+        val anim = binding.tvPointsAnim
+        val streakText = viewModel.streak.value?.let {
+            if (it >= 3) "\n🔥 $it day streak!" else ""
+        } ?: ""
+        anim.text = "+$points XP$streakText"
+        anim.visibility = View.VISIBLE
+        anim.alpha = 1f
+        anim.scaleX = 0.5f
+        anim.scaleY = 0.5f
+        anim.translationY = 0f
+
+        anim.animate()
+            .alpha(0f)
+            .scaleX(1.5f)
+            .scaleY(1.5f)
+            .translationY(-200f)
+            .setDuration(1200)
+            .setInterpolator(AccelerateInterpolator(0.5f))
+            .withEndAction { anim.visibility = View.GONE }
+            .start()
     }
 }

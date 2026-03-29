@@ -42,7 +42,10 @@ data class GeneratePlanResponse(
 )
 
 data class UpdateStatusResponse(
-    val message: String
+    val message: String,
+    @SerializedName("points_earned") val pointsEarned: Int = 0,
+    @SerializedName("total_points") val totalPoints: Int = 0,
+    val streak: Int = 0
 )
 
 data class PlanDetailResponse(
@@ -82,4 +85,36 @@ data class TutorialResponse(
 
 data class DeletePlanResponse(
     val message: String
+)
+
+// ── Points models ───────────────────────────────────────────────────────────
+
+data class PointsResponse(
+    @SerializedName("total_points") val totalPoints: Int,
+    val streak: Int,
+    @SerializedName("last_earned") val lastEarned: Int
+)
+
+// ── Profile / Achievement models ────────────────────────────────────────────
+
+data class Trophy(
+    val id: String,
+    val name: String,
+    val desc: String,
+    val icon: String,
+    val unlocked: Boolean
+)
+
+data class ProfileResponse(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("total_points") val totalPoints: Int,
+    val stars: Int,
+    @SerializedName("current_streak") val currentStreak: Int,
+    @SerializedName("best_streak") val bestStreak: Int,
+    @SerializedName("total_completed") val totalCompleted: Int,
+    @SerializedName("total_missed") val totalMissed: Int,
+    @SerializedName("total_pending") val totalPending: Int,
+    @SerializedName("total_plans") val totalPlans: Int,
+    @SerializedName("topics_studied") val topicsStudied: List<String>,
+    val trophies: List<Trophy>
 )
