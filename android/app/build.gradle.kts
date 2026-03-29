@@ -8,15 +8,31 @@ android {
     namespace = "com.lonelytrack"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("lonelytrack-release.jks")
+            storePassword = "lonelytrack123"
+            keyAlias = "lonelytrack"
+            keyPassword = "lonelytrack123"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.lonelytrack"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
 
         // Point Retrofit at your FastAPI backend
-        buildConfigField("String", "BASE_URL", "\"http://10.152.159.116:8000/\"")
+        buildConfigField("String", "BASE_URL", "\"https://e5k7-cybersync.hf.space/\"")
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures {
