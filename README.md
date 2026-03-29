@@ -1,6 +1,8 @@
-# CyberSync
+# LonelyTrack (CyberSync)
 
-AI-powered learning consistency agent that generates personalized study plans, tracks daily progress, auto-simplifies when you fall behind, and generates on-demand tutorials — all backed by an LLM and Firebase.
+**AI-powered learning consistency agent** that generates personalized study plans, tracks daily progress, adapts difficulty based on performance, quizzes you on completed lessons, gamifies learning with XP/trophies/streaks, and sends daily reminders — all powered by LLMs and Firebase.
+
+Built at the **AI Agent Hackathon by The Product Space**.
 
 ---
 
@@ -12,21 +14,21 @@ AI-powered learning consistency agent that generates personalized study plans, t
 - [Backend (FastAPI)](#backend-fastapi)
   - [Endpoints](#endpoints)
   - [Pydantic Models](#pydantic-models)
+  - [Background Intelligence](#background-intelligence)
   - [Environment Variables](#environment-variables)
   - [Dependencies](#backend-dependencies)
-  - [Running the Backend](#running-the-backend)
+  - [Running Locally](#running-the-backend)
+  - [Hosted Deployment](#hosted-deployment)
 - [Android App (Kotlin)](#android-app-kotlin)
-  - [Build Configuration](#build-configuration)
+  - [Screens](#screens)
   - [Project Structure](#project-structure)
-  - [Activities](#activities)
+  - [Authentication](#authentication)
   - [API Layer](#api-layer)
-  - [Data Models](#data-models)
-  - [ViewModel](#viewmodel)
+  - [Gamification System](#gamification-system)
   - [Navigation Drawer](#navigation-drawer)
   - [Dependencies](#android-dependencies)
   - [Running the App](#running-the-app)
 - [Firebase Setup](#firebase-setup)
-- [Gitignore](#gitignore)
 - [License](#license)
 
 ---
@@ -34,43 +36,94 @@ AI-powered learning consistency agent that generates personalized study plans, t
 ## Architecture
 
 ```
-┌─────────────────┐        HTTP/REST        ┌──────────────────┐
-│  Android App    │ ◄─────────────────────► │  FastAPI Backend  │
-│  (Kotlin/MVVM)  │                          │  (Python)         │
-└────────┬────────┘                          └────────┬──────────┘
-         │                                            │
-         │ Firestore SDK                              │ Firebase Admin SDK
-         │ (real-time listener)                       │ (read/write)
-         ▼                                            ▼
-       ┌──────────────────────────────────────────────────┐
-       │              Firebase Firestore                   │
-       │           Collection: learning_plans              │
-       └──────────────────────────────────────────────────┘
-                                                      │
-                                              LLM via OpenRouter
-                                                      │
-                                              ┌───────▼───────┐
-                                              │  Gemini 2.0   │
-                                              │  Flash / Any   │
-                                              │  OpenRouter    │
-                                              │  Model         │
-                                              └────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        ANDROID APP (Kotlin)                         │
+│                                                                      │
+│  LoginActivity ─► RegisterActivity       ┌── AnalyticsActivity      │
+│       │                                   ├── LeaderboardActivity    │
+│       ▼                                   ├── ProfileActivity        │
+│  MainActivity ◄──────────────────────────►├── HistoryActivity        │
+│  (Plan Form + Schedule List + XP Badge)   ├── TutorialActivity       │
+│       │                                   └── QuizActivity           │
+│       │  Firestore SDK (real-time snapshots)                        │
+└───────┼──────────────────────────────────────────────────────────────┘
+        │                    │
+        │ HTTPS/REST         │ Real-time Listener
+        ▼                    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     FIREBASE FIRESTORE                               │
+│                                                                      │
+│  Collections:  learning_plans  │  user_points  │  reminder_settings  │
+└──────────────────────────────────────────────────────────────────────┘
+        ▲
+        │ Firebase Admin SDK
+        │
+┌──────────────────────────────────────────────────────────────────────┐
+│                    FASTAPI BACKEND (Python)                           │
+│                                                                      │
+│  /generate-plan     /update-status      /generate-tutorial           │
+│  /generate-quiz     /submit-quiz        /plan/{id}                   │
+│  /history/{uid}     /delete /plan/{id}  /points/{uid}                │
+│  /profile/{uid}     /analytics/{uid}    /leaderboard                 │
+│  /reminder-settings                                                  │
+│                                                                      │
+│  Background Tasks:                                                   │
+│    • 3 missed days → AI simplifies schedule                          │
+│    • 7 completed days → AI increases difficulty                      │
+└──────────────────────┬───────────────────────────────────────────────┘
+                       │
+                       │ OpenAI-compatible SDK
+                       ▼
+              ┌─────────────────┐
+              │   OpenRouter     │
+              │   (LLM Gateway)  │
+              │                  │
+              │  Gemini 2.0 Flash│
+              │  Claude / Llama  │
+              │  Any model       │
+              └─────────────────┘
 ```
 
 ---
 
 ## Features
 
+### Core Learning Agent
 | Feature | Description |
 |---|---|
-| **AI Plan Generation** | LLM creates a day-by-day structured study schedule tailored to your topic, time budget, skill level, and duration |
-| **Daily Task Tracking** | Mark each day as completed or missed; progress shown in-app |
-| **Auto-Simplification** | Backend detects 3 consecutive missed days and triggers LLM to re-generate a simplified remaining schedule (~25% lighter) |
-| **On-Demand Tutorials** | Tap any day's topic to get a full AI-generated tutorial (800–1200 words) |
-| **Real-Time Sync** | Android app listens to Firestore snapshots — schedule changes (including simplification) appear instantly |
-| **Plan History** | View all past learning plans with completion stats |
-| **Navigation Drawer** | Hamburger menu with Home, New Plan, My Progress, History, and About |
-| **Slide Animations** | Smooth slide-in/slide-out activity transitions |
+| **AI Plan Generation** | LLM creates a structured day-by-day study schedule tailored to topic, time budget, skill level, and duration |
+| **Plan Caching** | Same topic + user → returns existing plan instantly (no duplicate LLM calls) |
+| **Daily Task Tracking** | Mark each day as completed or missed with optimistic UI updates |
+| **On-Demand Tutorials** | Tap any day to get a full AI-generated tutorial (800–1200 words with examples) |
+| **AI Quizzes** | 5-question AI-generated quiz after completing a lesson — earn bonus XP based on score |
+| **Real-Time Sync** | Android listens to Firestore snapshots — schedule changes appear instantly |
+| **Session Persistence** | App remembers your last plan across restarts via SharedPreferences |
+
+### Adaptive Intelligence (Background Tasks)
+| Feature | Description |
+|---|---|
+| **Auto-Simplification** | 3 consecutive missed days → AI rewrites remaining schedule ~25% lighter |
+| **Difficulty Boost** | 7 consecutive completed days → AI increases remaining schedule difficulty |
+
+### Gamification
+| Feature | Description |
+|---|---|
+| **XP Points** | +10 XP per completed task, +10 bonus at 3-day streak, +25 bonus at 7-day streak |
+| **Quiz Bonus XP** | +5 to +15 XP based on quiz score |
+| **Stars** | 1 star per 5 completed lessons |
+| **Trophies (11)** | ⭐ First Step, 🌟 Getting Started, 📚 Dedicated Learner, 🎓 Scholar, 👑 Master, 🔥 On Fire, ⚡ Week Warrior, 💎 Unstoppable, 🧭 Explorer, 💯 Century Club, 🏆 XP Hunter |
+| **Leaderboard** | Global ranking by XP with gold/silver/bronze medals |
+| **Streak Tracking** | Current streak + best streak persisted in Firestore |
+
+### User Management
+| Feature | Description |
+|---|---|
+| **Email/Password Auth** | Firebase Authentication for registered accounts |
+| **Anonymous Auth** | "Continue as Guest" for instant access |
+| **User Profile** | Stats dashboard: XP, stars, streaks, trophies, topics studied |
+| **Analytics** | Completion rate, minutes studied, per-course progress breakdown |
+| **Plan History** | Browse and reload all past learning plans, delete unwanted ones |
+| **Daily Reminders** | WorkManager-based notifications: "Don't break your streak!" |
 
 ---
 
@@ -78,11 +131,14 @@ AI-powered learning consistency agent that generates personalized study plans, t
 
 | Layer | Technology |
 |---|---|
-| Backend | Python 3, FastAPI, Uvicorn |
+| Backend | Python 3, FastAPI, Uvicorn, Pydantic |
 | LLM | OpenRouter API (default: `google/gemini-2.0-flash-001`) |
-| Database | Firebase Firestore |
+| Database | Firebase Firestore (3 collections) |
+| Auth | Firebase Authentication (Email/Password + Anonymous) |
 | Android | Kotlin, MVVM, ViewBinding, Retrofit 2, OkHttp, Coroutines, LiveData |
-| Build | Gradle 8.7.3 (Kotlin DSL), AGP 8.7.3, Kotlin 2.0.21 |
+| Notifications | Android WorkManager |
+| Hosting | HuggingFace Spaces (Docker) |
+| Build | Gradle 8.11.1, AGP 8.7.3, Kotlin 2.0.21 |
 
 ---
 
@@ -90,348 +146,229 @@ AI-powered learning consistency agent that generates personalized study plans, t
 
 ### Endpoints
 
-#### `POST /generate-plan`
-
-Generate an AI-powered learning plan.
-
-**Request body:**
-```json
-{
-  "user_id": "string",
-  "topic": "string",
-  "daily_minutes": 30,
-  "total_days": 14,
-  "skill_level": "beginner"
-}
-```
-
-| Field | Type | Constraints |
+| Method | Path | Description |
 |---|---|---|
-| `user_id` | `string` | required |
-| `topic` | `string` | required |
-| `daily_minutes` | `int` | 1–480 |
-| `total_days` | `int` | 1–365, default 14 |
-| `skill_level` | `string` | `beginner` \| `intermediate` \| `advanced` |
-
-**Response:**
-```json
-{
-  "plan_id": "firestore-doc-id",
-  "goal": "One-sentence learning goal",
-  "total_days": 14,
-  "schedule": [
-    { "day": 1, "topic": "Sub-topic name", "duration_mins": 30, "status": "pending" }
-  ]
-}
-```
-
----
-
-#### `POST /update-status`
-
-Mark a specific day as completed or missed. Triggers background simplification check if 3 consecutive days are missed.
-
-**Request body:**
-```json
-{
-  "user_id": "string",
-  "plan_id": "string",
-  "day": 1,
-  "status": "completed"
-}
-```
-
-| Field | Type | Constraints |
-|---|---|---|
-| `user_id` | `string` | required |
-| `plan_id` | `string` | required |
-| `day` | `int` | required |
-| `status` | `string` | `completed` \| `missed` |
-
-**Response:**
-```json
-{ "message": "Day 1 marked as completed" }
-```
-
-**Errors:** `404` Plan not found · `403` Not your plan · `400` Day not found or already updated
-
----
-
-#### `GET /plan/{plan_id}`
-
-Retrieve a single learning plan by ID.
-
-**Response:**
-```json
-{
-  "plan_id": "string",
-  "user_id": "string",
-  "goal": "string",
-  "total_days": 14,
-  "schedule": [ ... ]
-}
-```
-
----
-
-#### `POST /generate-tutorial`
-
-Generate an AI tutorial for a given topic.
-
-**Request body:**
-```json
-{
-  "topic": "string",
-  "skill_level": "beginner"
-}
-```
-
-**Response:**
-```json
-{
-  "topic": "string",
-  "tutorial": "Full tutorial text (800-1200 words)"
-}
-```
-
----
-
-#### `GET /history/{user_id}`
-
-Get all learning plans for a user, sorted newest first.
-
-**Response:**
-```json
-{
-  "plans": [
-    {
-      "plan_id": "string",
-      "goal": "string",
-      "topic": "string",
-      "total_days": 14,
-      "completed_days": 5,
-      "created_at": "ISO datetime"
-    }
-  ]
-}
-```
-
----
+| `POST` | `/generate-plan` | Generate AI study plan (or return cached) |
+| `POST` | `/update-status` | Mark day completed/missed, award XP, trigger background checks |
+| `GET` | `/plan/{plan_id}` | Retrieve a single plan |
+| `DELETE` | `/plan/{plan_id}?user_id=` | Delete a plan (ownership verified) |
+| `POST` | `/generate-tutorial` | AI tutorial for a topic (800-1200 words) |
+| `POST` | `/generate-quiz` | AI multiple-choice quiz (3-10 questions) |
+| `POST` | `/submit-quiz` | Grade quiz answers, award bonus XP |
+| `GET` | `/history/{user_id}` | All plans for a user (newest first) |
+| `GET` | `/points/{user_id}` | Total XP, current streak, best streak |
+| `GET` | `/profile/{user_id}` | Full profile: stats, trophies, topics |
+| `GET` | `/analytics/{user_id}` | Completion rate, minutes studied, per-course breakdown |
+| `GET` | `/leaderboard` | Top users by XP (with medal emojis) |
+| `POST` | `/reminder-settings` | Save daily reminder preferences |
+| `GET` | `/reminder-settings/{user_id}` | Retrieve reminder preferences |
 
 ### Pydantic Models
 
 | Model | Fields |
 |---|---|
-| `UserRequest` | `user_id`, `topic`, `daily_minutes` (1–480), `total_days` (1–365), `skill_level` |
+| `UserRequest` | `user_id`, `topic`, `daily_minutes` (1–480), `total_days` (1–365), `skill_level` (beginner/intermediate/advanced/pro) |
 | `DailyTask` | `day`, `topic`, `duration_mins`, `status` (pending/completed/missed) |
 | `LearningPlan` | `goal`, `total_days`, `schedule: list[DailyTask]` |
 | `StatusUpdate` | `user_id`, `plan_id`, `day`, `status` (completed/missed) |
 | `TutorialRequest` | `topic`, `skill_level` |
+| `QuizRequest` | `topic`, `skill_level`, `num_questions` (3–10, default 5) |
+| `QuizQuestion` | `question`, `options: list[str]`, `correct_answer: int`, `explanation` |
+| `QuizSubmission` | `user_id`, `plan_id`, `day`, `answers: list[int]` |
+| `ReminderSettings` | `user_id`, `enabled`, `hour` (0–23), `minute` (0–59) |
 
-### Background Logic: Auto-Simplification
+### Background Intelligence
 
-When a status update is received, a background task (`check_and_simplify`) runs:
-1. Reads the plan's schedule from Firestore
-2. Detects 3+ consecutive missed days
-3. Sends remaining tasks to the LLM with instructions to reduce complexity ~25%
-4. Replaces pending/missed tasks in Firestore (keeps completed tasks)
-5. Adds a `simplified_at` timestamp
+After every `/update-status` call, a background task runs:
+
+**Auto-Simplification (3 consecutive misses):**
+1. Scans schedule for 3+ consecutive `"missed"` days
+2. Sends remaining tasks to LLM: "simplify by ~25%"
+3. Replaces pending tasks in Firestore, preserves completed ones
+4. Adds `simplified_at` timestamp
+
+**Difficulty Boost (7 consecutive completions):**
+1. Scans for 7+ consecutive `"completed"` days
+2. Sends remaining tasks to LLM: "increase difficulty, add advanced concepts"
+3. Replaces pending tasks in Firestore
+4. Adds `difficulty_increased_at` timestamp
 
 ### Environment Variables
 
-Create `backend/.env` from the example:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `FIREBASE_SERVICE_ACCOUNT_KEY_PATH` | Yes | `serviceAccountKey.json` | Path to Firebase service account JSON key |
-| `OPENROUTER_API_KEY` | Yes | — | API key from [OpenRouter](https://openrouter.ai/keys) |
-| `OPENROUTER_MODEL` | No | `google/gemini-2.0-flash-001` | Any OpenRouter-supported model ID |
+| `FIREBASE_SERVICE_ACCOUNT_KEY_PATH` | Yes* | `serviceAccountKey.json` | Path to Firebase JSON key |
+| `FIREBASE_SERVICE_ACCOUNT_KEY_JSON` | Yes* | — | Full JSON string (for Docker/HF Spaces) |
+| `OPENROUTER_API_KEY` | Yes | — | API key from [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `OPENROUTER_MODEL` | No | `google/gemini-2.0-flash-001` | Any OpenRouter model ID |
+
+*One of `_PATH` or `_JSON` is required. `_JSON` takes precedence (used in Docker deployments).
 
 ### Backend Dependencies
 
-| Package | Version |
+| Package | Purpose |
 |---|---|
-| `fastapi` | 0.115.0 |
-| `uvicorn[standard]` | 0.30.6 |
-| `pydantic` | 2.9.2 |
-| `firebase-admin` | 6.5.0 |
-| `openai` | ≥1.51.0 |
-| `python-dotenv` | 1.0.1 |
+| `fastapi` | Web framework |
+| `uvicorn[standard]` | ASGI server |
+| `pydantic` | Request/response validation |
+| `firebase-admin` | Firestore + Auth (server-side) |
+| `openai` | OpenRouter LLM calls (OpenAI-compatible) |
+| `python-dotenv` | Environment variable loading |
 
 ### Running the Backend
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# Place your Firebase service account key as serviceAccountKey.json
-# Configure .env (see above)
-
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+cp .env.example .env   # fill in OPENROUTER_API_KEY
+# place serviceAccountKey.json in backend/
+python main.py
 ```
 
-The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+Server starts at `http://0.0.0.0:8000`. Docs at `http://localhost:8000/docs`.
+
+### Hosted Deployment
+
+The backend is deployed on **HuggingFace Spaces** via Docker:
+
+**Live API:** `https://e5k7-cybersync.hf.space/`
+
+HF Spaces config:
+- `Dockerfile` in `hf-spaces/` folder
+- Secrets: `OPENROUTER_API_KEY` + `FIREBASE_SERVICE_ACCOUNT_KEY_JSON`
+- Port 7860 (HF default)
 
 ---
 
 ## Android App (Kotlin)
 
-**Package name:** `com.lonelytrack`  
-**App label:** LonelyTrack  
-**Min SDK:** 26 (Android 8.0)  
-**Target / Compile SDK:** 35  
-**Version:** 0.1.0 (versionCode 1)  
-**Java target:** 17
+**Package:** `com.lonelytrack` · **Min SDK:** 26 · **Target SDK:** 35 · **Version:** 1.0.0
 
-### Build Configuration
+### Screens
 
-| Setting | Value |
+| Activity | Purpose |
 |---|---|
-| AGP | 8.7.3 |
-| Kotlin | 2.0.21 |
-| Google Services plugin | 4.4.2 |
-| `compileSdk` | 35 |
-| `minSdk` | 26 |
-| `targetSdk` | 35 |
-| `BASE_URL` | `http://10.152.159.116:8000/` (BuildConfig field — update for your network) |
-| ViewBinding | enabled |
-| BuildConfig | enabled |
+| `LoginActivity` | Email/password login + "Continue as Guest" (Firebase anonymous auth) |
+| `RegisterActivity` | New account registration with email/password |
+| `MainActivity` | Plan form, schedule list with ✓/✗ buttons, XP badge, drawer navigation |
+| `TutorialActivity` | Full AI-generated tutorial viewer with loading/error/retry states |
+| `QuizActivity` | 5-question AI quiz with radio buttons, score display, XP award |
+| `HistoryActivity` | Past plans list with progress bars, delete buttons, tap to reload |
+| `ProfileActivity` | Stats dashboard: XP, stars, streaks, trophies grid, topics studied |
+| `AnalyticsActivity` | Completion %, minutes studied, completed/missed/pending cards, per-course bars |
+| `LeaderboardActivity` | Global XP ranking with 🥇🥈🥉 medals, current user highlighted |
 
 ### Project Structure
 
 ```
 android/app/src/main/java/com/lonelytrack/
-├── MainActivity.kt            # Main screen: plan form, schedule list, progress
-├── TutorialActivity.kt        # AI-generated tutorial viewer
-├── HistoryActivity.kt         # Past learning plans list
+├── LoginActivity.kt
+├── RegisterActivity.kt
+├── MainActivity.kt
+├── TutorialActivity.kt
+├── QuizActivity.kt
+├── HistoryActivity.kt
+├── ProfileActivity.kt
+├── AnalyticsActivity.kt
+├── LeaderboardActivity.kt
 ├── adapter/
-│   ├── ScheduleAdapter.kt     # RecyclerView adapter for daily tasks
-│   └── HistoryAdapter.kt      # RecyclerView adapter for plan history
+│   ├── ScheduleAdapter.kt          # Day cards with ✓/✗ or status labels
+│   ├── HistoryAdapter.kt           # History cards with delete + progress
+│   ├── TrophyAdapter.kt            # Trophy grid (locked/unlocked)
+│   └── LeaderboardAdapter.kt       # Ranked user list
 ├── api/
-│   ├── LearningApiService.kt  # Retrofit interface (5 endpoints)
-│   └── RetrofitClient.kt      # Singleton OkHttp + Retrofit builder
+│   ├── LearningApiService.kt       # Retrofit interface (14 endpoints)
+│   └── RetrofitClient.kt           # OkHttp + Retrofit singleton
 ├── model/
-│   └── Models.kt              # All data classes (request/response)
+│   └── Models.kt                   # All data classes
+├── notification/
+│   └── ReminderWorker.kt           # WorkManager daily notification
 └── viewmodel/
-    └── LearningViewModel.kt   # MVVM ViewModel with LiveData
+    └── LearningViewModel.kt        # MVVM ViewModel with LiveData
 ```
 
-**Resources:**
-```
-res/
-├── layout/
-│   ├── activity_main.xml        # DrawerLayout + form + schedule RecyclerView
-│   ├── activity_tutorial.xml    # Tutorial viewer with loading/error states
-│   ├── activity_history.xml     # History list with empty/error states
-│   ├── item_day_task.xml        # Single schedule day row
-│   ├── item_history_plan.xml    # Single history plan row
-│   └── nav_header.xml           # Navigation drawer header
-├── menu/
-│   └── drawer_menu.xml          # Drawer items: Home, New Plan, Progress, History, About
-├── anim/
-│   ├── slide_in_left.xml
-│   ├── slide_in_right.xml
-│   ├── slide_out_left.xml
-│   └── slide_out_right.xml
-└── xml/
-    └── network_security_config.xml  # Allows cleartext to 10.0.2.2 & 10.152.159.116
-```
+### Authentication
 
-### Activities
-
-| Activity | Purpose | Exported |
-|---|---|---|
-| `MainActivity` | Launcher. Plan generation form, schedule RecyclerView, progress tracking, navigation drawer | Yes (LAUNCHER) |
-| `TutorialActivity` | Displays AI-generated tutorial for a tapped day's topic. Has loading spinner, error state, retry button | No |
-| `HistoryActivity` | Lists all past plans for the user with completion stats. Tap to reload a plan | No |
-
-### Permissions
-
-| Permission | Reason |
-|---|---|
-| `INTERNET` | HTTP calls to FastAPI backend + Firestore |
-
-### Network Security
-
-Cleartext HTTP allowed for:
-- `10.0.2.2` (Android emulator → host loopback)
-- `10.152.159.116` (local network backend IP)
+- **Firebase Auth** with Email/Password and Anonymous providers
+- Login screen is the launcher activity
+- Guest users get a temporary Firebase UID (plans still persist in Firestore)
+- Logout clears auth state + SharedPreferences, returns to login
+- Drawer header shows user email or "Signed in as Guest"
 
 ### API Layer
 
-**`LearningApiService`** — Retrofit interface:
+**`LearningApiService`** — 14 Retrofit endpoints:
 
-| Method | Endpoint | Request | Response |
-|---|---|---|---|
-| `generatePlan()` | `POST generate-plan` | `UserRequest` | `GeneratePlanResponse` |
-| `updateStatus()` | `POST update-status` | `StatusUpdate` | `UpdateStatusResponse` |
-| `getPlan()` | `GET plan/{planId}` | path param | `PlanDetailResponse` |
-| `generateTutorial()` | `POST generate-tutorial` | `TutorialRequest` | `TutorialResponse` |
-| `getHistory()` | `GET history/{userId}` | path param | `HistoryResponse` |
-
-**`RetrofitClient`** — Singleton with:
-- Base URL from `BuildConfig.BASE_URL`
-- 30s connect / 60s read / 30s write timeouts
-- `HttpLoggingInterceptor` (BODY in debug, NONE in release)
-- Gson converter
-
-### Data Models
-
-| Class | Fields | Usage |
+| Method | Path | Purpose |
 |---|---|---|
-| `UserRequest` | `userId`, `topic`, `dailyMinutes`, `totalDays`, `skillLevel` | Plan generation request |
-| `StatusUpdate` | `userId`, `planId`, `day`, `status` | Mark day completed/missed |
-| `DailyTask` | `day`, `topic`, `durationMins`, `status` | A single day in a schedule |
-| `LearningPlan` | `goal`, `totalDays`, `schedule` | Full plan structure |
-| `GeneratePlanResponse` | `planId`, `goal`, `totalDays`, `schedule` | Create-plan response |
-| `UpdateStatusResponse` | `message` | Status update response |
-| `PlanDetailResponse` | `planId`, `userId`, `goal`, `totalDays`, `schedule` | Get-plan response |
-| `HistoryPlanSummary` | `planId`, `goal`, `topic`, `totalDays`, `completedDays`, `createdAt` | History item |
-| `HistoryResponse` | `plans: List<HistoryPlanSummary>` | History endpoint response |
-| `TutorialRequest` | `topic`, `skillLevel` | Tutorial generation request |
-| `TutorialResponse` | `topic`, `tutorial` | Tutorial content response |
+| `POST` | `generate-plan` | Create/cache study plan |
+| `POST` | `update-status` | Mark day + earn XP |
+| `GET` | `plan/{id}` | Fetch plan details |
+| `DELETE` | `plan/{id}` | Delete a plan |
+| `POST` | `generate-tutorial` | AI tutorial |
+| `POST` | `generate-quiz` | AI quiz questions |
+| `POST` | `submit-quiz` | Grade + XP |
+| `GET` | `history/{uid}` | Plan history |
+| `GET` | `points/{uid}` | XP + streak |
+| `GET` | `profile/{uid}` | Full profile |
+| `GET` | `analytics/{uid}` | Stats breakdown |
+| `GET` | `leaderboard` | Global rankings |
+| `POST` | `reminder-settings` | Save prefs |
+| `GET` | `reminder-settings/{uid}` | Load prefs |
 
-All models use `@SerializedName` for `snake_case` ↔ `camelCase` mapping.
+### Gamification System
 
-### ViewModel
+**XP Points:**
+- +10 per completed day
+- +10 bonus for 3-day streak
+- +25 bonus for 7-day streak
+- +5 to +15 quiz bonus (score-based)
+- Gold XP badge in the header with floating "+N XP" animation
 
-`LearningViewModel` manages:
-- **Plan generation** via Retrofit → updates `plan` and `schedule` LiveData
-- **Status updates** with optimistic local update + double-tap prevention (`updatingDays` set)
-- **Real-time Firestore listener** on the active plan document — schedule changes (including backend auto-simplification) propagate instantly
-- **Error handling** surfaced through `error` LiveData
-- **Loading state** via `loading` LiveData
+**Trophies (11 unlockable):**
+| Trophy | Requirement |
+|---|---|
+| ⭐ First Step | Complete 1 lesson |
+| 🌟 Getting Started | Complete 5 lessons |
+| 📚 Dedicated Learner | Complete 10 lessons |
+| 🎓 Scholar | Complete 25 lessons |
+| 👑 Master | Complete 50 lessons |
+| 🔥 On Fire | 3-day streak |
+| ⚡ Week Warrior | 7-day streak |
+| 💎 Unstoppable | 14-day streak |
+| 🧭 Explorer | Study 3 different topics |
+| 💯 Century Club | Earn 100 XP |
+| 🏆 XP Hunter | Earn 500 XP |
 
 ### Navigation Drawer
 
 | Item | Action |
 |---|---|
-| Home | Close drawer |
-| New Plan | Show form, clear current plan |
-| My Progress | Scroll to plan summary (or toast if no plan) |
-| History | Launch `HistoryActivity` |
-| About | Toast: "LonelyTrack — AI-powered learning consistency agent" |
+| 🏠 Home | Close drawer |
+| ➕ New Plan | Reset to form view |
+| 📊 My Progress | Scroll to plan summary |
+| 📜 History | Open HistoryActivity |
+| 👤 My Profile | Open ProfileActivity |
+| 📈 Analytics | Open AnalyticsActivity |
+| 🏆 Leaderboard | Open LeaderboardActivity |
+| ℹ About | App info toast |
+| 🚪 Logout | Sign out + return to login |
 
 ### Android Dependencies
 
 | Library | Version |
 |---|---|
 | Firebase BoM | 33.7.0 |
-| Firebase Firestore KTX | (BoM-managed) |
+| Firebase Firestore KTX | (BoM) |
+| Firebase Auth KTX | (BoM) |
 | Retrofit | 2.11.0 |
-| Retrofit Gson Converter | 2.11.0 |
-| OkHttp Logging Interceptor | 4.12.0 |
-| Kotlinx Coroutines (Android) | 1.8.1 |
-| Kotlinx Coroutines (Play Services) | 1.8.1 |
-| Lifecycle ViewModel KTX | 2.8.7 |
-| Lifecycle LiveData KTX | 2.8.7 |
-| Lifecycle Runtime KTX | 2.8.7 |
+| Gson Converter | 2.11.0 |
+| OkHttp Logging | 4.12.0 |
+| Coroutines (Android) | 1.8.1 |
+| Coroutines (Play Services) | 1.8.1 |
+| Lifecycle ViewModel/LiveData/Runtime | 2.8.7 |
+| WorkManager | 2.9.1 |
 | AndroidX Core KTX | 1.15.0 |
 | AppCompat | 1.7.0 |
 | Material Components | 1.12.0 |
@@ -439,50 +376,54 @@ All models use `@SerializedName` for `snake_case` ↔ `camelCase` mapping.
 
 ### Running the App
 
-1. **Update `BASE_URL`** in `android/app/build.gradle.kts` to point at your backend's IP:
-   ```kotlin
-   buildConfigField("String", "BASE_URL", "\"http://<YOUR_IP>:8000/\"")
-   ```
-2. Place `google-services.json` in `android/app/` (from Firebase Console).
-3. Open the `android/` folder in Android Studio.
-4. Sync Gradle, then **Run** on an emulator or device (min API 26).
+1. Place `google-services.json` in `android/app/`
+2. Open `android/` in Android Studio → Sync Gradle
+3. Update `BASE_URL` in `build.gradle.kts` if running backend locally
+4. Run on device/emulator (min API 26)
 
-> For emulator: use `10.0.2.2` as the host IP. For physical device: use your machine's LAN IP and ensure both are on the same network.
+> Default `BASE_URL` is `https://e5k7-cybersync.hf.space/` (hosted). For local dev, change to `http://<YOUR_IP>:8000/`.
 
 ---
 
 ## Firebase Setup
 
-1. Create a project in [Firebase Console](https://console.firebase.google.com/).
-2. Enable **Cloud Firestore** (start in test mode or configure rules).
-3. **Backend:** Generate a service account key (Project Settings → Service accounts → Generate new private key). Save as `backend/serviceAccountKey.json`.
-4. **Android:** Download `google-services.json` (Project Settings → Your apps → Android) and place in `android/app/`.
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com/)
+2. Enable **Cloud Firestore** (test mode for dev)
+3. Enable **Authentication** → Sign-in method → Enable **Email/Password** + **Anonymous**
+4. **Backend:** Project Settings → Service accounts → Generate new private key → save as `backend/serviceAccountKey.json`
+5. **Android:** Project Settings → Your apps → Android (package: `com.lonelytrack`) → Download `google-services.json`
 
-**Firestore collection:** `learning_plans`
+**Firestore Security Rules:**
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /learning_plans/{planId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /user_points/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /reminder_settings/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
+```
 
-| Field | Type | Description |
-|---|---|---|
-| `user_id` | string | Anonymous user identifier |
-| `topic` | string | Learning topic |
-| `goal` | string | LLM-generated learning goal |
-| `total_days` | number | Plan duration |
-| `schedule` | array | List of `DailyTask` maps |
-| `created_at` | string | ISO 8601 timestamp |
-| `simplified_at` | string (optional) | Set when auto-simplification triggers |
+**Firestore Collections:**
 
----
-
-## Gitignore
-
-The project excludes:
-- `.env`, `serviceAccountKey.json`, Firebase admin SDK keys
-- Python artifacts (`__pycache__/`, `*.pyc`, `.venv/`)
-- Android build artifacts (`.gradle/`, `build/`, `local.properties`)
-- IDE files (`.idea/`, `*.iml`)
-- macOS (`.DS_Store`)
+| Collection | Key Fields |
+|---|---|
+| `learning_plans` | `user_id`, `topic`, `goal`, `total_days`, `schedule[]`, `created_at`, `simplified_at`, `difficulty_increased_at` |
+| `user_points` | `total_points`, `current_streak`, `best_streak`, `last_completed_date` |
+| `reminder_settings` | `user_id`, `enabled`, `hour`, `minute` |
 
 ---
 
 ## License
 
-This project was built for a hackathon. No license specified.
+Built at the **AI Agent Hackathon by The Product Space**. MIT License.
