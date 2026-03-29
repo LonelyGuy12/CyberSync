@@ -1,17 +1,24 @@
 package com.lonelytrack
 
+import android.Manifest
+import android.app.TimePickerDialog
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
 import com.lonelytrack.adapter.ScheduleAdapter
 import com.lonelytrack.databinding.ActivityMainBinding
+import com.lonelytrack.model.DailyTask
 import com.lonelytrack.notification.ReminderWorker
 import com.lonelytrack.viewmodel.LearningViewModel
 
@@ -25,10 +32,15 @@ class MainActivity : AppCompatActivity() {
         get() = auth.currentUser?.uid ?: ""
 
     private var currentPlanId: String? = null
+    private var todayTask: DailyTask? = null
 
     private val prefs by lazy {
         getSharedPreferences("lonelytrack_prefs", MODE_PRIVATE)
     }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted or not — we proceed either way */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,8 +117,9 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this, LeaderboardActivity::class.java))
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
-                R.id.nav_about -> {
-                    Toast.makeText(this, "LonelyTrack — AI-powered learning consistency agent", Toast.LENGTH_LONG).show()
+                R.id.nav_settings -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
                 R.id.nav_logout -> {
                     auth.signOut()
@@ -206,6 +219,10 @@ class MainActivity : AppCompatActivity() {
 
         // ── Observe schedule (real-time from Firestore) ─────────────────
         viewModel.schedule.observe(this) { tasks ->
+            // Find today's lesson (first pending task)
+            val today = tasks.firstOrNull { it.status == "pending" }
+            todayTask = today
+            adapter.todayDay = today?.day ?: -1
             adapter.submitList(tasks.toList())
 
             // Update progress text
@@ -213,6 +230,38 @@ class MainActivity : AppCompatActivity() {
                 val completed = tasks.count { it.status == "completed" }
                 val total = tasks.size
                 binding.tvProgress.text = "$completed / $total days completed"
+
+                // Show today's lesson hero card
+                if (today != null) {
+                    binding.todayLessonCard.visibility = View.VISIBLE
+                    binding.tvTodayTopic.text = today.topic
+                    binding.tvTodayDuration.text = "${today.durationMins} min lesson"
+                    binding.tvTodayDay.text = "Day ${today.day} of $total"
+                    binding.todayCompleteRow.visibility = View.VISIBLE
+                    binding.reminderRow.visibility = View.VISIBLE
+                    binding.tvUpcomingLabel.visibility = View.VISIBLE
+
+                    // Streak display
+                    val streak = tasks.takeWhile { it.status == "completed" }.size
+                    if (streak >= 2) {
+                        binding.tvTodayStreak.visibility = View.VISIBLE
+                        binding.tvTodayStreak.text = "🔥 $streak day streak"
+                    } else {
+                        binding.tvTodayStreak.visibility = View.GONE
+                    }
+                } else if (completed == total && total > 0) {
+                    // All done!
+                    binding.todayLessonCard.visibility = View.VISIBLE
+                    binding.tvTodayTopic.text = "🎉 Course Complete!"
+                    binding.tvTodayDuration.text = "You finished all $total lessons"
+                    binding.tvTodayDay.text = ""
+                    binding.btnStartLesson.text = "View Certificate"
+                    binding.todayCompleteRow.visibility = View.GONE
+                    binding.reminderRow.visibility = View.GONE
+                    binding.tvUpcomingLabel.visibility = View.VISIBLE
+                } else {
+                    binding.todayLessonCard.visibility = View.GONE
+                }
             }
         }
 
@@ -247,6 +296,59 @@ class MainActivity : AppCompatActivity() {
         ReminderWorker.createChannel(this)
         ReminderWorker.schedule(this)
 
+        // ── Request notification permission (Android 13+) ───────────────
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // ── Today's lesson buttons ──────────────────────────────────────
+        binding.btnStartLesson.setOnClickListener {
+            val task = todayTask ?: return@setOnClickListener
+            val skillLevel = binding.etSkillLevel.text.toString().trim().ifEmpty { "Beginner" }
+            val intent = Intent(this, TutorialActivity::class.java).apply {
+                putExtra(TutorialActivity.EXTRA_TOPIC, task.topic)
+                putExtra(TutorialActivity.EXTRA_SKILL_LEVEL, skillLevel)
+            }
+            startActivity(intent)
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+        }
+
+        binding.btnTodayComplete.setOnClickListener {
+            val task = todayTask ?: return@setOnClickListener
+            currentPlanId?.let { planId ->
+                viewModel.updateDayStatus(userId, planId, task.day, "completed")
+            }
+        }
+
+        binding.btnTodayMiss.setOnClickListener {
+            val task = todayTask ?: return@setOnClickListener
+            currentPlanId?.let { planId ->
+                viewModel.updateDayStatus(userId, planId, task.day, "missed")
+            }
+        }
+
+        // ── Reminder time picker ────────────────────────────────────────
+        val savedHour = prefs.getInt("reminder_hour", 9)
+        val savedMinute = prefs.getInt("reminder_minute", 0)
+        updateReminderTimeDisplay(savedHour, savedMinute)
+
+        binding.tvReminderTime.setOnClickListener {
+            val curHour = prefs.getInt("reminder_hour", 9)
+            val curMin = prefs.getInt("reminder_minute", 0)
+            TimePickerDialog(this, { _, hour, minute ->
+                prefs.edit()
+                    .putInt("reminder_hour", hour)
+                    .putInt("reminder_minute", minute)
+                    .apply()
+                updateReminderTimeDisplay(hour, minute)
+                ReminderWorker.schedule(this)  // Reschedule with new time
+                Toast.makeText(this, "Reminder set!", Toast.LENGTH_SHORT).show()
+            }, curHour, curMin, false).show()
+        }
+
         // ── Load plan from History or restore last session ─────────────
         val incomingPlanId = intent.getStringExtra("plan_id")
         if (incomingPlanId != null) {
@@ -257,6 +359,12 @@ class MainActivity : AppCompatActivity() {
                 viewModel.loadPlan(savedPlanId)
             }
         }
+    }
+
+    private fun updateReminderTimeDisplay(hour: Int, minute: Int) {
+        val amPm = if (hour < 12) "AM" else "PM"
+        val displayHour = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
+        binding.tvReminderTime.text = String.format("%d:%02d %s", displayHour, minute, amPm)
     }
 
     private fun showPointsAnimation(points: Int) {

@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:fitsSystemWindows="true">
+
+    <!-- Toolbar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#1E1E1E"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp">
+
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="Back"
+            android:padding="4dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Settings"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginStart="16dp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Notifications Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NOTIFICATIONS"
+                android:textColor="#BB86FC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Enable Notifications Toggle -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Daily Reminders"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Get notified to complete your daily lesson"
+                        android:textColor="#999999"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchNotifications"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Reminder Time -->
+            <LinearLayout
+                android:id="@+id/layoutReminderTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Reminder Time"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/tvReminderTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="09:00 AM"
+                        android:textColor="#BB86FC"
+                        android:textSize="14sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🕐"
+                    android:textSize="24sp" />
+            </LinearLayout>
+
+            <!-- Notification Sound -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="24dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Notification Sound"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Play sound with reminder"
+                        android:textColor="#999999"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchSound"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Learning Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LEARNING"
+                android:textColor="#BB86FC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Auto-simplify -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Auto-adjust Difficulty"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="AI adapts your plan when you miss 3 days or ace 7 in a row"
+                        android:textColor="#999999"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchAutoAdjust"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Quiz after lessons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="24dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Quiz After Lessons"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Take a quiz after completing each lesson to earn bonus XP"
+                        android:textColor="#999999"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchQuiz"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- About Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ABOUT"
+                android:textColor="#BB86FC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:orientation="vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LonelyTrack"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI-powered learning consistency agent\nVersion 1.0.0"
+                    android:textColor="#999999"
+                    android:textSize="13sp"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

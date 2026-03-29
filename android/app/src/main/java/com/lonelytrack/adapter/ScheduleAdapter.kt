@@ -18,6 +18,7 @@ class ScheduleAdapter(
 ) : ListAdapter<DailyTask, ScheduleAdapter.TaskViewHolder>(DiffCallback) {
 
     var updatingDays: Set<Int> = emptySet()
+    var todayDay: Int = -1  // The current day (first pending day)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
         val binding = ItemDayTaskBinding.inflate(
@@ -41,19 +42,47 @@ class ScheduleAdapter(
             b.tvTopic.text = task.topic
             b.tvDuration.text = "${task.durationMins} min"
 
+            val isToday = task.day == todayDay
+            val isFuture = task.status == "pending" && task.day > todayDay && todayDay > 0
+
             // Circle color based on status
-            val circleColor = when (task.status) {
-                "completed" -> context.getColor(R.color.success)
-                "missed"    -> context.getColor(R.color.error)
+            val circleColor = when {
+                isToday     -> context.getColor(R.color.primary)
+                task.status == "completed" -> context.getColor(R.color.success)
+                task.status == "missed"    -> context.getColor(R.color.error)
+                isFuture    -> context.getColor(R.color.border)
                 else        -> context.getColor(R.color.pending)
             }
             (b.tvDay.background as? GradientDrawable)?.setColor(circleColor)
 
+            // Dim future lessons (Duolingo style - locked look)
+            val cardAlpha = if (isFuture) 0.4f else 1f
+            b.root.alpha = cardAlpha
+
             when (task.status) {
                 "pending" -> {
-                    b.actionButtons.visibility = View.VISIBLE
-                    b.tvStatus.visibility = View.GONE
-                    b.tvTopic.alpha = 1f
+                    if (isToday) {
+                        // Today's lesson — hide buttons here (hero card handles it)
+                        b.actionButtons.visibility = View.GONE
+                        b.tvStatus.visibility = View.VISIBLE
+                        b.tvStatus.text = "▶"
+                        b.tvStatus.setTextColor(context.getColor(R.color.primary))
+                        b.tvStatus.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        b.tvTopic.alpha = 1f
+                        b.tvDuration.alpha = 1f
+                    } else if (isFuture) {
+                        b.actionButtons.visibility = View.GONE
+                        b.tvStatus.visibility = View.VISIBLE
+                        b.tvStatus.text = "🔒"
+                        b.tvStatus.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        b.tvTopic.alpha = 0.6f
+                        b.tvDuration.alpha = 0.6f
+                    } else {
+                        b.actionButtons.visibility = View.VISIBLE
+                        b.tvStatus.visibility = View.GONE
+                        b.tvTopic.alpha = 1f
+                        b.tvDuration.alpha = 1f
+                    }
                 }
                 "completed" -> {
                     b.actionButtons.visibility = View.GONE

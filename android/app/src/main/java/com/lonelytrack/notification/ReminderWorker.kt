@@ -17,6 +17,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.lonelytrack.MainActivity
 import com.lonelytrack.R
 import kotlinx.coroutines.tasks.await
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 class ReminderWorker(
@@ -30,13 +31,27 @@ class ReminderWorker(
         const val WORK_NAME = "daily_reminder"
 
         fun schedule(context: Context) {
+            val prefs = context.getSharedPreferences("lonelytrack_prefs", Context.MODE_PRIVATE)
+            val hour = prefs.getInt("reminder_hour", 9)
+            val minute = prefs.getInt("reminder_minute", 0)
+
+            // Calculate delay until next reminder time
+            val now = Calendar.getInstance()
+            val target = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                if (before(now)) add(Calendar.DAY_OF_MONTH, 1)
+            }
+            val initialDelay = target.timeInMillis - now.timeInMillis
+
             val request = PeriodicWorkRequestBuilder<ReminderWorker>(
                 1, TimeUnit.DAYS
-            ).build()
+            ).setInitialDelay(initialDelay, TimeUnit.MILLISECONDS).build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }
@@ -64,6 +79,10 @@ class ReminderWorker(
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return Result.success()
 
         // Check if user has pending tasks
+        // Check if notifications are enabled
+        val prefs = applicationContext.getSharedPreferences("lonelytrack_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("notifications_enabled", true)) return Result.success()
+
         try {
             val docs = FirebaseFirestore.getInstance()
                 .collection("learning_plans")
@@ -90,13 +109,24 @@ class ReminderWorker(
             }
 
             if (pendingCount > 0) {
-                val streakText = if (currentStreak > 0) " Don't break your $currentStreak-day streak!" else ""
-                val message = if (nextTopic.isNotEmpty()) {
-                    "Today's topic: $nextTopic.$streakText"
+                val motivations = listOf(
+                    "Your brain is waiting! 🧠",
+                    "Just ${nextTopic.split(":").firstOrNull()?.trim() ?: "one lesson"} today!",
+                    "5 minutes is all it takes to start 💪",
+                    "Champions don't skip days! 🏆",
+                    "Your future self will thank you ⚡"
+                )
+                val title = if (currentStreak >= 3) {
+                    "🔥 $currentStreak-day streak! Keep it alive!"
                 } else {
-                    "You have $pendingCount lessons waiting.$streakText"
+                    motivations.random()
                 }
-                showNotification("Time to learn! 📚", message)
+                val message = if (nextTopic.isNotEmpty()) {
+                    "Today: $nextTopic"
+                } else {
+                    "You have $pendingCount lessons waiting for you."
+                }
+                showNotification(title, message)
             }
         } catch (_: Exception) {
             showNotification("Time to learn! 📚", "Keep your streak alive — open LonelyTrack!")
