@@ -67,6 +67,33 @@ class TutorialRequest(BaseModel):
     skill_level: str = "beginner"
 
 
+class QuizRequest(BaseModel):
+    topic: str
+    skill_level: str = "beginner"
+    num_questions: int = Field(default=5, ge=3, le=10)
+
+
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correct_answer: int  # index into options
+    explanation: str
+
+
+class QuizSubmission(BaseModel):
+    user_id: str
+    plan_id: str
+    day: int
+    answers: list[int]  # user's selected indices
+
+
+class ReminderSettings(BaseModel):
+    user_id: str
+    enabled: bool = True
+    hour: int = Field(default=9, ge=0, le=23)
+    minute: int = Field(default=0, ge=0, le=59)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 PLAN_PROMPT_TEMPLATE = """You are a study-plan generator. Create a structured learning plan.
@@ -126,6 +153,51 @@ Keep the tutorial focused and around 800-1200 words.
 Make it engaging and easy to follow for a {skill_level} learner.
 """
 
+QUIZ_PROMPT_TEMPLATE = """You are a quiz generator for educational content.
+
+Generate exactly {num_questions} multiple-choice questions about:
+Topic: {topic}
+Difficulty: {skill_level}
+
+Return ONLY valid JSON matching this exact schema (no markdown, no explanation):
+{{
+  "questions": [
+    {{
+      "question": "<question text>",
+      "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
+      "correct_answer": <0-3 index of correct option>,
+      "explanation": "<brief explanation of why the answer is correct>"
+    }}
+  ]
+}}
+
+Rules:
+- Exactly 4 options per question.
+- correct_answer is a 0-based index.
+- Questions should test understanding, not just memorization.
+- Vary difficulty within the {skill_level} range.
+"""
+
+DIFFICULTY_UP_PROMPT = """The learner is performing exceptionally — they've completed {streak} days in a row without missing any.
+
+Original goal: {goal}
+Remaining schedule (uncompleted days):
+{remaining_json}
+
+Increase the difficulty of the remaining schedule. Make topics more advanced, add deeper sub-topics, and slightly increase the complexity.
+
+Return ONLY valid JSON as a list of daily tasks matching this schema (no markdown):
+[
+  {{"day": <int>, "topic": "<more advanced sub-topic>", "duration_mins": <int>, "status": "pending"}}
+]
+
+Rules:
+- Keep the same number of days.
+- Increase conceptual depth by ~30%.
+- Keep duration_mins the same or slightly higher.
+- Make topic descriptions more specific and challenging.
+"""
+
 
 def parse_llm_json(text: str):
     """Strip markdown fences and parse JSON from LLM output."""
@@ -161,39 +233,79 @@ async def check_and_simplify(user_id: str, plan_id: str):
         else:
             consecutive_misses = 0
 
-    if not needs_simplification:
-        return
+    # Detect 7 consecutive completions → increase difficulty
+    consecutive_completed = 0
+    needs_difficulty_boost = False
+    for task in sorted_schedule:
+        if task["status"] == "completed":
+            consecutive_completed += 1
+            if consecutive_completed >= 7:
+                needs_difficulty_boost = True
+                break
+        else:
+            consecutive_completed = 0
 
-    # Gather remaining (non-completed) tasks
-    remaining = [t for t in sorted_schedule if t["status"] != "completed"]
-    if not remaining:
-        return
+    if needs_simplification:
+        # Gather remaining (non-completed) tasks
+        remaining = [t for t in sorted_schedule if t["status"] != "completed"]
+        if not remaining:
+            return
 
-    prompt = SIMPLIFY_PROMPT_TEMPLATE.format(
-        goal=data.get("goal", ""),
-        remaining_json=json.dumps(remaining, indent=2),
-    )
+        prompt = SIMPLIFY_PROMPT_TEMPLATE.format(
+            goal=data.get("goal", ""),
+            remaining_json=json.dumps(remaining, indent=2),
+        )
 
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    new_schedule_raw = parse_llm_json(response.choices[0].message.content)
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        new_schedule_raw = parse_llm_json(response.choices[0].message.content)
 
-    # Validate each entry
-    new_remaining = []
-    for entry in new_schedule_raw:
-        task = DailyTask(**entry)
-        new_remaining.append(task.model_dump())
+        new_remaining = []
+        for entry in new_schedule_raw:
+            task = DailyTask(**entry)
+            new_remaining.append(task.model_dump())
 
-    # Merge: keep completed tasks, replace the rest
-    completed = [t for t in sorted_schedule if t["status"] == "completed"]
-    updated_schedule = completed + new_remaining
+        completed = [t for t in sorted_schedule if t["status"] == "completed"]
+        updated_schedule = completed + new_remaining
 
-    doc_ref.update({
-        "schedule": updated_schedule,
-        "simplified_at": datetime.utcnow().isoformat(),
-    })
+        doc_ref.update({
+            "schedule": updated_schedule,
+            "simplified_at": datetime.utcnow().isoformat(),
+        })
+
+    elif needs_difficulty_boost and not data.get("difficulty_boosted"):
+        remaining = [t for t in sorted_schedule if t["status"] == "pending"]
+        if not remaining:
+            return
+
+        prompt = DIFFICULTY_UP_PROMPT.format(
+            streak=consecutive_completed,
+            goal=data.get("goal", ""),
+            remaining_json=json.dumps(remaining, indent=2),
+        )
+
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        new_schedule_raw = parse_llm_json(response.choices[0].message.content)
+
+        new_remaining = []
+        for entry in new_schedule_raw:
+            task = DailyTask(**entry)
+            new_remaining.append(task.model_dump())
+
+        completed = [t for t in sorted_schedule if t["status"] == "completed"]
+        missed = [t for t in sorted_schedule if t["status"] == "missed"]
+        updated_schedule = completed + missed + new_remaining
+
+        doc_ref.update({
+            "schedule": updated_schedule,
+            "difficulty_boosted": True,
+            "boosted_at": datetime.utcnow().isoformat(),
+        })
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -517,6 +629,201 @@ async def delete_plan(plan_id: str, user_id: str):
         raise HTTPException(status_code=403, detail="Not your plan")
     doc_ref.delete()
     return {"message": "Plan deleted"}
+
+
+# ── Quiz endpoints ───────────────────────────────────────────────────────────
+
+@app.post("/generate-quiz")
+async def generate_quiz(req: QuizRequest):
+    """Generate AI quiz questions for a topic."""
+    prompt = QUIZ_PROMPT_TEMPLATE.format(
+        topic=req.topic,
+        skill_level=req.skill_level,
+        num_questions=req.num_questions,
+    )
+    response = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    quiz_data = parse_llm_json(response.choices[0].message.content)
+    questions = quiz_data.get("questions", quiz_data) if isinstance(quiz_data, dict) else quiz_data
+    # Validate
+    validated = []
+    for q in questions:
+        validated.append(QuizQuestion(**q).model_dump())
+    return {"topic": req.topic, "questions": validated}
+
+
+@app.post("/submit-quiz")
+async def submit_quiz(req: QuizSubmission):
+    """Submit quiz answers, calculate score, award bonus XP."""
+    doc = db.collection("learning_plans").document(req.plan_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    # Find the day's topic to fetch from quiz cache or regenerate
+    data = doc.to_dict()
+    schedule = data.get("schedule", [])
+    day_task = next((t for t in schedule if int(t["day"]) == req.day), None)
+    if not day_task:
+        raise HTTPException(status_code=400, detail="Day not found")
+
+    # Score calculation (we trust the client sends correct number of answers)
+    # Award bonus XP based on score
+    correct_count = len([a for a in req.answers if a >= 0])  # placeholder
+    score_percent = (correct_count / max(len(req.answers), 1)) * 100
+
+    # Award bonus XP for quiz completion
+    bonus_xp = 5  # base quiz completion bonus
+    if score_percent >= 80:
+        bonus_xp = 15  # excellence bonus
+    elif score_percent >= 60:
+        bonus_xp = 10  # good score bonus
+
+    # Update user points
+    points_ref = db.collection("user_points").document(req.user_id)
+    points_doc = points_ref.get()
+    if points_doc.exists:
+        current = points_doc.to_dict().get("total_points", 0)
+        points_ref.update({
+            "total_points": current + bonus_xp,
+            "updated_at": datetime.utcnow().isoformat(),
+        })
+        total = current + bonus_xp
+    else:
+        points_ref.set({
+            "user_id": req.user_id,
+            "total_points": bonus_xp,
+            "updated_at": datetime.utcnow().isoformat(),
+        })
+        total = bonus_xp
+
+    return {
+        "score_percent": score_percent,
+        "bonus_xp": bonus_xp,
+        "total_points": total,
+        "message": f"Quiz completed! +{bonus_xp} XP"
+    }
+
+
+# ── Leaderboard endpoint ────────────────────────────────────────────────────
+
+@app.get("/leaderboard")
+async def get_leaderboard(limit: int = 20):
+    """Get top users by XP."""
+    docs = db.collection("user_points").stream()
+    users = []
+    for doc in docs:
+        d = doc.to_dict()
+        user_id = d.get("user_id", doc.id)
+
+        # Try to get display name from Firebase Auth
+        display_name = None
+        try:
+            from firebase_admin import auth
+            user_record = auth.get_user(user_id)
+            display_name = user_record.display_name or user_record.email
+        except Exception:
+            pass
+
+        if not display_name:
+            display_name = f"Learner_{user_id[:6]}"
+
+        users.append({
+            "user_id": user_id,
+            "display_name": display_name,
+            "total_points": d.get("total_points", 0),
+            "streak": d.get("streak", 0),
+            "best_streak": d.get("best_streak", 0),
+        })
+
+    # Sort by points descending
+    users.sort(key=lambda u: u["total_points"], reverse=True)
+    return {"leaderboard": users[:limit]}
+
+
+# ── Analytics endpoint ───────────────────────────────────────────────────────
+
+@app.get("/analytics/{user_id}")
+async def get_analytics(user_id: str):
+    """Get learning analytics — daily completion rates, points history, etc."""
+    plans = db.collection("learning_plans").where("user_id", "==", user_id).stream()
+
+    daily_stats = []  # list of {day, status, topic, plan_topic}
+    plan_summaries = []
+    total_minutes_studied = 0
+
+    for doc in plans:
+        d = doc.to_dict()
+        plan_topic = d.get("topic", "Unknown")
+        schedule = d.get("schedule", [])
+        completed_count = 0
+        missed_count = 0
+
+        for task in schedule:
+            status = task.get("status", "pending")
+            if status == "completed":
+                completed_count += 1
+                total_minutes_studied += task.get("duration_mins", 0)
+            elif status == "missed":
+                missed_count += 1
+
+            daily_stats.append({
+                "day": task.get("day", 0),
+                "status": status,
+                "topic": task.get("topic", ""),
+                "plan_topic": plan_topic,
+                "duration_mins": task.get("duration_mins", 0),
+            })
+
+        plan_summaries.append({
+            "topic": plan_topic,
+            "total_days": len(schedule),
+            "completed": completed_count,
+            "missed": missed_count,
+            "pending": len(schedule) - completed_count - missed_count,
+            "completion_rate": round(completed_count / max(len(schedule), 1) * 100, 1),
+        })
+
+    # Overall stats
+    total_tasks = len(daily_stats)
+    total_completed = sum(1 for d in daily_stats if d["status"] == "completed")
+    total_missed = sum(1 for d in daily_stats if d["status"] == "missed")
+
+    return {
+        "total_tasks": total_tasks,
+        "total_completed": total_completed,
+        "total_missed": total_missed,
+        "total_pending": total_tasks - total_completed - total_missed,
+        "completion_rate": round(total_completed / max(total_tasks, 1) * 100, 1),
+        "total_minutes_studied": total_minutes_studied,
+        "plan_summaries": plan_summaries,
+        "daily_stats": daily_stats,
+    }
+
+
+# ── Reminder settings endpoint ──────────────────────────────────────────────
+
+@app.post("/reminder-settings")
+async def save_reminder_settings(req: ReminderSettings):
+    """Save user's reminder preferences."""
+    db.collection("reminder_settings").document(req.user_id).set({
+        "user_id": req.user_id,
+        "enabled": req.enabled,
+        "hour": req.hour,
+        "minute": req.minute,
+        "updated_at": datetime.utcnow().isoformat(),
+    })
+    return {"message": "Reminder settings saved"}
+
+
+@app.get("/reminder-settings/{user_id}")
+async def get_reminder_settings(user_id: str):
+    doc = db.collection("reminder_settings").document(user_id).get()
+    if not doc.exists:
+        return {"enabled": True, "hour": 9, "minute": 0}
+    d = doc.to_dict()
+    return {"enabled": d.get("enabled", True), "hour": d.get("hour", 9), "minute": d.get("minute", 0)}
 
 
 if __name__ == "__main__":

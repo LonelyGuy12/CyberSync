@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
 import com.lonelytrack.adapter.ScheduleAdapter
 import com.lonelytrack.databinding.ActivityMainBinding
+import com.lonelytrack.notification.ReminderWorker
 import com.lonelytrack.viewmodel.LearningViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -96,6 +97,14 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this, ProfileActivity::class.java))
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
+                R.id.nav_analytics -> {
+                    startActivity(Intent(this, AnalyticsActivity::class.java))
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                }
+                R.id.nav_leaderboard -> {
+                    startActivity(Intent(this, LeaderboardActivity::class.java))
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                }
                 R.id.nav_about -> {
                     Toast.makeText(this, "LonelyTrack — AI-powered learning consistency agent", Toast.LENGTH_LONG).show()
                 }
@@ -124,13 +133,26 @@ class MainActivity : AppCompatActivity() {
             },
             onItemClick = { task ->
                 val skillLevel = binding.etSkillLevel.text.toString().trim().ifEmpty { "beginner" }
-                // dropdown is read-only, value is always valid
-                val intent = Intent(this, TutorialActivity::class.java).apply {
-                    putExtra(TutorialActivity.EXTRA_TOPIC, task.topic)
-                    putExtra(TutorialActivity.EXTRA_SKILL_LEVEL, skillLevel)
+                if (task.status == "completed") {
+                    // Launch quiz for completed lessons
+                    val intent = Intent(this, QuizActivity::class.java).apply {
+                        putExtra(QuizActivity.EXTRA_TOPIC, task.topic)
+                        putExtra(QuizActivity.EXTRA_SKILL_LEVEL, skillLevel)
+                        putExtra(QuizActivity.EXTRA_USER_ID, userId)
+                        putExtra(QuizActivity.EXTRA_PLAN_ID, currentPlanId ?: "")
+                        putExtra(QuizActivity.EXTRA_DAY, task.day)
+                    }
+                    startActivity(intent)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                } else {
+                    // Launch tutorial for pending/missed
+                    val intent = Intent(this, TutorialActivity::class.java).apply {
+                        putExtra(TutorialActivity.EXTRA_TOPIC, task.topic)
+                        putExtra(TutorialActivity.EXTRA_SKILL_LEVEL, skillLevel)
+                    }
+                    startActivity(intent)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
-                startActivity(intent)
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }
         )
 
@@ -220,6 +242,10 @@ class MainActivity : AppCompatActivity() {
         if (userId.isNotEmpty()) {
             viewModel.loadPoints(userId)
         }
+
+        // ── Schedule daily reminders ────────────────────────────────────
+        ReminderWorker.createChannel(this)
+        ReminderWorker.schedule(this)
 
         // ── Load plan from History or restore last session ─────────────
         val incomingPlanId = intent.getStringExtra("plan_id")

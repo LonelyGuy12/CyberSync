@@ -118,3 +118,87 @@ data class ProfileResponse(
     @SerializedName("topics_studied") val topicsStudied: List<String>,
     val trophies: List<Trophy>
 )
+
+// ── Quiz models ─────────────────────────────────────────────────────────────
+
+data class QuizRequest(
+    val topic: String,
+    @SerializedName("skill_level") val skillLevel: String,
+    @SerializedName("num_questions") val numQuestions: Int = 5
+)
+
+data class QuizQuestion(
+    val question: String,
+    val options: List<String>,
+    @SerializedName("correct_answer") val correctAnswer: Int,
+    val explanation: String
+)
+
+data class QuizResponse(
+    val topic: String,
+    val questions: List<QuizQuestion>
+)
+
+data class QuizSubmission(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("plan_id") val planId: String,
+    val day: Int,
+    val answers: List<Int>
+)
+
+data class QuizResult(
+    @SerializedName("score_percent") val scorePercent: Double,
+    @SerializedName("bonus_xp") val bonusXp: Int,
+    @SerializedName("total_points") val totalPoints: Int,
+    val message: String
+)
+
+// ── Leaderboard models ──────────────────────────────────────────────────────
+
+data class LeaderboardEntry(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("display_name") val displayName: String,
+    @SerializedName("total_points") val totalPoints: Int,
+    val streak: Int,
+    @SerializedName("best_streak") val bestStreak: Int
+)
+
+data class LeaderboardResponse(
+    val leaderboard: List<LeaderboardEntry>
+)
+
+// ── Analytics models ────────────────────────────────────────────────────────
+
+data class PlanSummary(
+    val topic: String,
+    @SerializedName("total_days") val totalDays: Int,
+    val completed: Int,
+    val missed: Int,
+    val pending: Int,
+    @SerializedName("completion_rate") val completionRate: Double
+)
+
+data class AnalyticsResponse(
+    @SerializedName("total_tasks") val totalTasks: Int,
+    @SerializedName("total_completed") val totalCompleted: Int,
+    @SerializedName("total_missed") val totalMissed: Int,
+    @SerializedName("total_pending") val totalPending: Int,
+    @SerializedName("completion_rate") val completionRate: Double,
+    @SerializedName("total_minutes_studied") val totalMinutesStudied: Int,
+    @SerializedName("plan_summaries") val planSummaries: List<PlanSummary>
+)
+
+// ── Reminder models ─────────────────────────────────────────────────────────
+
+data class ReminderSettings(
+    @SerializedName("user_id") val userId: String,
+    val enabled: Boolean = true,
+    val hour: Int = 9,
+    val minute: Int = 0
+)
+
+data class ReminderSettingsResponse(
+    val enabled: Boolean,
+    val hour: Int,
+    val minute: Int
+)
