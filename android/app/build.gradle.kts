@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.lonelytrack"
-    compileSdk = 35
+    compileSdk = 34
 
     signingConfigs {
         create("release") {
@@ -14,13 +14,15 @@ android {
             storePassword = "lonelytrack123"
             keyAlias = "lonelytrack"
             keyPassword = "lonelytrack123"
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 
     defaultConfig {
         applicationId = "com.lonelytrack"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
@@ -71,7 +73,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
     // ── AndroidX core ───────────────────────────────────────────────────────
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.activity:activity-ktx:1.9.3")
